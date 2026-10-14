@@ -1,4 +1,4 @@
-name: Build Nuclear Wallpaper & Custom Icon Studio 3.0
+name: Build Nuclear Wallpaper 4.0 Live Preview & Icon Studio
 
 on:
   push:
@@ -9,28 +9,23 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
-
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
 
-      - name: Generate 3.0 Project & OnePlus Icon Pack Studio
+      - name: Generate 4.0 Project & Icon Pack
         run: |
           pip install pillow
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
-          mkdir -p app/src/main/res/xml
-          mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/drawable-nodpi
-          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/xml app/src/main/res/values app/src/main/res/drawable-nodpi app/src/main/assets
 
           python3 - << 'PYEOF'
           import math
@@ -39,129 +34,79 @@ jobs:
           OUT = "app/src/main/res/drawable-nodpi"
           S = 512
 
-          def rounded_mask(size, radius):
-              mask = Image.new("L", (size, size), 0)
-              d = ImageDraw.Draw(mask)
-              d.rounded_rectangle([8, 8, size - 8, size - 8], radius=radius, fill=255)
-              return mask
-
-          def make_base_squircle(bg_top, bg_bot, border_col, glow_col):
+          def base_box(c1, c2, border, glow):
               img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               grad = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               gd = ImageDraw.Draw(grad)
               for y in range(S):
                   t = y / float(S)
-                  r = int(bg_top[0] * (1 - t) + bg_bot[0] * t)
-                  g = int(bg_top[1] * (1 - t) + bg_bot[1] * t)
-                  b = int(bg_top[2] * (1 - t) + bg_bot[2] * t)
-                  gd.line([(0, y), (S, y)], fill=(r, g, b, 248))
-              mask = rounded_mask(S, 118)
+                  col = tuple(int(c1[i] * (1 - t) + c2[i] * t) for i in range(3)) + (248,)
+                  gd.line([(0, y), (S, y)], fill=col)
+              mask = Image.new("L", (S, S), 0)
+              ImageDraw.Draw(mask).rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=255)
               img.paste(grad, (0, 0), mask)
-
-              glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-              gdraw = ImageDraw.Draw(glow)
-              gdraw.ellipse([96, 96, S - 96, S - 96], fill=(glow_col[0], glow_col[1], glow_col[2], 80))
-              glow = glow.filter(ImageFilter.GaussianBlur(42))
-              img = Image.alpha_composite(img, glow)
-
-              bdraw = ImageDraw.Draw(img)
-              bdraw.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border_col, width=8)
+              g = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              ImageDraw.Draw(g).ellipse([96, 96, S - 96, S - 96], fill=glow + (80,))
+              img = Image.alpha_composite(img, g.filter(ImageFilter.GaussianBlur(40)))
+              ImageDraw.Draw(img).rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border, width=8)
               return img
 
-          # 1. 全局图标包底板、高光罩、裁切蒙版
-          back = make_base_squircle((16, 23, 41), (8, 11, 22), (0, 245, 212, 190), (123, 44, 191))
-          back.save(f"{OUT}/icon_back.png")
+          base_box((16, 23, 41), (8, 11, 22), (0, 245, 212, 190), (123, 44, 191)).save(f"{OUT}/icon_back.png")
 
           upon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-          ud = ImageDraw.Draw(upon)
-          ud.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 230), width=7)
-          ud.rounded_rectangle([18, 18, S - 18, S - 18], radius=110, outline=(155, 93, 229, 120), width=3)
+          ImageDraw.Draw(upon).rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 230), width=7)
           upon.save(f"{OUT}/icon_upon.png")
 
           mask_img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-          md = ImageDraw.Draw(mask_img)
-          md.rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=(255, 255, 255, 255))
+          ImageDraw.Draw(mask_img).rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=(255, 255, 255, 255))
           mask_img.save(f"{OUT}/icon_mask.png")
 
-          # 2. 生成 8 款高定赛博图标
-          def make_custom_icon(filename, accent1, accent2, mode):
-              base = make_base_squircle((18, 25, 46), (7, 10, 20), accent1 + (235,), accent2)
-              layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-              d = ImageDraw.Draw(layer)
-              cx, cy = S // 2, S // 2
+          def make_icon(name, a1, a2, kind):
+              b = base_box((18, 25, 46), (7, 10, 20), a1 + (235,), a2)
+              ly = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              d = ImageDraw.Draw(ly)
+              cx = cy = S // 2
+              if kind == "nuc":
+                  for ang in [0, 60, 120]:
+                      r = math.radians(ang)
+                      pts = [(cx + 155*math.cos(math.radians(t))*math.cos(r) - 58*math.sin(math.radians(t))*math.sin(r),
+                              cy + 155*math.cos(math.radians(t))*math.sin(r) + 58*math.sin(math.radians(t))*math.cos(r)) for t in range(0, 360, 6)]
+                      d.polygon(pts, outline=a1 + (240,), width=10)
+                  d.ellipse([cx-38, cy-38, cx+38, cy+38], fill=a2+(255,), outline=(255,255,255,245), width=5)
+              elif kind == "bh":
+                  for r, c, w in [(145, a2, 11), (110, a1, 15), (80, (255,230,120), 9)]:
+                      d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=c+(235,), width=w)
+                  d.ellipse([cx-55, cy-55, cx+55, cy+55], fill=(5,7,15,255))
+              elif kind == "chat":
+                  d.rounded_rectangle([122, 142, 390, 348], radius=65, fill=a1+(50,), outline=a1+(245,), width=12)
+                  for x in [195, 256, 317]:
+                      d.ellipse([x-15, 228, x+15, 258], fill=(255,255,255,245))
+              elif kind == "game":
+                  d.polygon([(cx, 118), (388, cy), (cx, 394), (124, cy)], fill=a2+(55,), outline=a1+(245,), width=12)
+                  d.ellipse([cx-42, cy-42, cx+42, cy+42], fill=a1+(245,))
+              elif kind == "vid":
+                  d.rounded_rectangle([118, 138, 394, 374], radius=54, fill=a2+(50,), outline=a1+(245,), width=12)
+                  d.polygon([(215, 192), (215, 320), (328, 256)], fill=(255,255,255,248))
+              elif kind == "code":
+                  d.arc([128, 128, 384, 384], 0, 360, fill=a1+(245,), width=12)
+                  d.line([(275, 195), (237, 317)], fill=a2+(255,), width=12)
+              out = Image.alpha_composite(b, ly.filter(ImageFilter.GaussianBlur(9)))
+              Image.alpha_composite(out, ly).save(f"{OUT}/{name}.png")
 
-              if mode == "nuclear":
-                  for angle in [0, 60, 120]:
-                      rad = math.radians(angle)
-                      pts = []
-                      for t in range(0, 360, 5):
-                          tr = math.radians(t)
-                          x0, y0 = 155 * math.cos(tr), 58 * math.sin(tr)
-                          xr = cx + x0 * math.cos(rad) - y0 * math.sin(rad)
-                          yr = cy + x0 * math.sin(rad) + y0 * math.cos(rad)
-                          pts.append((xr, yr))
-                      d.polygon(pts, outline=accent1 + (240,), width=10)
-                  d.ellipse([cx - 38, cy - 38, cx + 38, cy + 38], fill=accent2 + (255,), outline=(255, 255, 255, 245), width=5)
-              elif mode == "blackhole":
-                  for r, col, w in [(148, accent2, 11), (112, accent1, 15), (82, (255, 230, 120), 9)]:
-                      d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col + (235,), width=w)
-                  d.ellipse([cx - 56, cy - 56, cx + 56, cy + 56], fill=(5, 7, 15, 255))
-              elif mode == "chat":
-                  d.rounded_rectangle([122, 142, 390, 348], radius=65, fill=accent1 + (50,), outline=accent1 + (245,), width=12)
-                  d.ellipse([185, 228, 215, 258], fill=(255, 255, 255, 245))
-                  d.ellipse([245, 228, 275, 258], fill=accent2 + (255,))
-                  d.ellipse([305, 228, 335, 258], fill=(255, 255, 255, 245))
-              elif mode == "game":
-                  d.polygon([(cx, 118), (388, cy), (cx, 394), (124, cy)], fill=accent2 + (55,), outline=accent1 + (245,), width=12)
-                  d.ellipse([cx - 44, cy - 44, cx + 44, cy + 44], fill=accent1 + (245,))
-              elif mode == "video":
-                  d.rounded_rectangle([118, 138, 394, 374], radius=54, fill=accent2 + (50,), outline=accent1 + (245,), width=12)
-                  d.polygon([(215, 192), (215, 320), (328, 256)], fill=(255, 255, 255, 248))
-              elif mode == "code":
-                  d.arc([128, 128, 384, 384], start=0, end=360, fill=accent1 + (245,), width=12)
-                  d.line([(195, 210), (155, 256), (195, 302)], fill=(255, 255, 255, 248), width=12)
-                  d.line([(317, 210), (357, 256), (317, 302)], fill=(255, 255, 255, 248), width=12)
-                  d.line([(275, 195), (237, 317)], fill=accent2 + (255,), width=10)
-              elif mode == "camera":
-                  d.rounded_rectangle([118, 152, 394, 368], radius=48, fill=accent1 + (40,), outline=accent1 + (245,), width=12)
-                  d.ellipse([cx - 64, cy - 56, cx + 64, cy + 72], outline=accent2 + (250,), width=12)
-                  d.ellipse([cx - 26, cy - 18, cx + 26, cy + 34], fill=(255, 255, 255, 240))
-              elif mode == "music":
-                  d.ellipse([cx - 135, cy - 135, cx + 135, cy + 135], outline=accent1 + (240,), width=12)
-                  d.ellipse([cx - 85, cy - 85, cx + 85, cy + 85], outline=accent2 + (220,), width=8)
-                  d.ellipse([cx - 28, cy - 28, cx + 28, cy + 28], fill=(255, 255, 255, 245))
-
-              glow_layer = layer.filter(ImageFilter.GaussianBlur(10))
-              out = Image.alpha_composite(base, glow_layer)
-              out = Image.alpha_composite(out, layer)
-              out.save(f"{OUT}/{filename}.png")
-
-          make_custom_icon("ic_launcher", (0, 245, 212), (247, 37, 133), "nuclear")
-          make_custom_icon("ic_nuclear_cyan", (0, 245, 212), (0, 187, 249), "nuclear")
-          make_custom_icon("ic_nuclear_purple", (155, 93, 229), (247, 37, 133), "nuclear")
-          make_custom_icon("ic_blackhole", (254, 228, 64), (155, 93, 229), "blackhole")
-          make_custom_icon("ic_cyber_wechat", (0, 245, 212), (16, 185, 129), "chat")
-          make_custom_icon("ic_cyber_game", (247, 37, 133), (254, 228, 64), "game")
-          make_custom_icon("ic_cyber_video", (0, 187, 249), (247, 37, 133), "video")
-          make_custom_icon("ic_cyber_github", (155, 93, 229), (0, 245, 212), "code")
-          make_custom_icon("ic_cyber_camera", (254, 228, 64), (247, 37, 133), "camera")
-          make_custom_icon("ic_cyber_music", (0, 245, 212), (155, 93, 229), "music")
+          make_icon("ic_launcher", (0,245,212), (247,37,133), "nuc")
+          make_icon("ic_nuclear_cyan", (0,245,212), (0,187,249), "nuc")
+          make_icon("ic_blackhole", (254,228,64), (155,93,229), "bh")
+          make_icon("ic_cyber_wechat", (0,245,212), (16,185,129), "chat")
+          make_icon("ic_cyber_game", (247,37,133), (254,228,64), "game")
+          make_icon("ic_cyber_video", (0,187,249), (247,37,133), "vid")
+          make_icon("ic_cyber_github", (155,93,229), (0,245,212), "code")
           PYEOF
 
           cat << 'EOF' > settings.gradle.kts
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
           rootProject.name = "NuclearWallpaper"
           include(":app")
@@ -185,33 +130,22 @@ jobs:
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
           }
-
           android {
               namespace = "com.i7ruhua.nuclearwallpaper"
               compileSdk = 34
-
               defaultConfig {
                   applicationId = "com.i7ruhua.nuclearwallpaper"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 3
-                  versionName = "3.0-ARGON-ICON-STUDIO"
-              }
-
-              buildTypes {
-                  release {
-                      isMinifyEnabled = false
-                  }
+                  versionCode = 4
+                  versionName = "4.0-ARGON-PREVIEW"
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
+              kotlinOptions { jvmTarget = "17" }
           }
-
           dependencies {
               implementation("androidx.core:core-ktx:1.13.1")
               implementation("androidx.appcompat:appcompat:1.7.0")
@@ -223,7 +157,7 @@ jobs:
           <resources>
               <string name="app_name">核芯壁纸引擎</string>
               <string name="icon_studio_name">核芯自定义图标包</string>
-              <string name="wallpaper_desc">4 Argon 3.0 · 支持壁纸自由缩放平移、185Hz高刷与相册自定义图标包</string>
+              <string name="wallpaper_desc">4 Argon 4.0 · 实时大小预览窗 + 185Hz高刷 + 一加图标包</string>
           </resources>
           EOF
 
@@ -242,14 +176,11 @@ jobs:
               <iconmask img1="icon_mask" />
               <iconupon img1="icon_upon" />
               <scale factor="0.78" />
-
               <item component="ComponentInfo{com.i7ruhua.nuclearwallpaper/com.i7ruhua.nuclearwallpaper.MainActivity}" drawable="ic_launcher" />
               <item component="ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}" drawable="ic_cyber_wechat" />
               <item component="ComponentInfo{com.ss.android.ugc.aweme/com.ss.android.ugc.aweme.splash.SplashActivity}" drawable="ic_cyber_video" />
-              <item component="ComponentInfo{com.kuaishou.nebula/com.yxcorp.gifshow.HomeActivity}" drawable="ic_cyber_video" />
               <item component="ComponentInfo{com.tencent.tmgp.sgame/com.tencent.tmgp.sgame.SGameActivity}" drawable="ic_cyber_game" />
               <item component="ComponentInfo{com.github.android/com.github.android.activities.MainActivity}" drawable="ic_cyber_github" />
-              <item component="ComponentInfo{com.tencent.qqmusic/com.tencent.qqmusic.activity.AppStarterActivity}" drawable="ic_cyber_music" />
           </resources>
           EOF
           cp app/src/main/res/xml/appfilter.xml app/src/main/assets/appfilter.xml
@@ -258,17 +189,14 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <version>1</version>
-              <category title="核芯高定赛博图标" />
+              <category title="核芯高定图标" />
               <item drawable="ic_launcher" />
               <item drawable="ic_nuclear_cyan" />
-              <item drawable="ic_nuclear_purple" />
               <item drawable="ic_blackhole" />
               <item drawable="ic_cyber_wechat" />
               <item drawable="ic_cyber_game" />
               <item drawable="ic_cyber_video" />
               <item drawable="ic_cyber_github" />
-              <item drawable="ic_cyber_camera" />
-              <item drawable="ic_cyber_music" />
               <item drawable="icon_back" />
           </resources>
           EOF
@@ -280,14 +208,11 @@ jobs:
               <string-array name="icon_pack" translatable="false">
                   <item>ic_launcher</item>
                   <item>ic_nuclear_cyan</item>
-                  <item>ic_nuclear_purple</item>
                   <item>ic_blackhole</item>
                   <item>ic_cyber_wechat</item>
                   <item>ic_cyber_game</item>
                   <item>ic_cyber_video</item>
                   <item>ic_cyber_github</item>
-                  <item>ic_cyber_camera</item>
-                  <item>ic_cyber_music</item>
                   <item>icon_back</item>
               </string-array>
           </resources>
@@ -296,14 +221,8 @@ jobs:
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <uses-feature
-                  android:name="android.software.live_wallpaper"
-                  android:required="true" />
-              <uses-feature
-                  android:glEsVersion="0x00020000"
-                  android:required="true" />
-
+              <uses-feature android:name="android.software.live_wallpaper" android:required="true" />
+              <uses-feature android:glEsVersion="0x00020000" android:required="true" />
               <application
                   android:allowBackup="true"
                   android:icon="@drawable/ic_launcher"
@@ -312,21 +231,14 @@ jobs:
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:label="@string/app_name">
+                  <activity android:name=".MainActivity" android:exported="true" android:label="@string/app_name">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
 
-                  <!-- 专门响应一加 ColorOS 桌面图标包识别 & 单个图标自定义选图回调 -->
-                  <activity
-                      android:name=".IconPickerActivity"
-                      android:exported="true"
-                      android:label="@string/icon_studio_name">
+                  <activity android:name=".IconPickerActivity" android:exported="true" android:label="@string/icon_studio_name">
                       <intent-filter>
                           <action android:name="org.adw.launcher.THEMES" />
                           <category android:name="android.intent.category.DEFAULT" />
@@ -343,14 +255,6 @@ jobs:
                           <action android:name="com.anddoes.launcher.THEME" />
                           <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
-                      <intent-filter>
-                          <action android:name="com.teslacoilsw.launcher.THEME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                      <intent-filter>
-                          <action android:name="com.gau.go.launcherex.theme" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
                   </activity>
 
                   <service
@@ -362,9 +266,7 @@ jobs:
                       <intent-filter>
                           <action android:name="android.service.wallpaper.WallpaperService" />
                       </intent-filter>
-                      <meta-data
-                          android:name="android.service.wallpaper"
-                          android:resource="@xml/wallpaper" />
+                      <meta-data android:name="android.service.wallpaper" android:resource="@xml/wallpaper" />
                   </service>
               </application>
           </manifest>
@@ -375,333 +277,154 @@ jobs:
 
           import android.app.Activity
           import android.content.Intent
-          import android.graphics.Bitmap
-          import android.graphics.BitmapFactory
-          import android.graphics.BitmapShader
-          import android.graphics.Canvas
-          import android.graphics.Color
-          import android.graphics.Matrix
-          import android.graphics.Paint
-          import android.graphics.RectF
-          import android.graphics.Shader
-          import android.graphics.Typeface
+          import android.graphics.*
           import android.graphics.drawable.GradientDrawable
           import android.net.Uri
           import android.os.Bundle
           import android.view.Gravity
-          import android.widget.Button
-          import android.widget.GridLayout
-          import android.widget.ImageView
-          import android.widget.LinearLayout
-          import android.widget.ScrollView
-          import android.widget.TextView
-          import android.widget.Toast
+          import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
 
           class IconPickerActivity : AppCompatActivity() {
+              private var shapeStyle = 1
+              private val styleBtns = mutableListOf<Button>()
 
-              // 0: 一加原生圆角, 1: 赛博霓虹边框, 2: 纯圆头像, 3: 无边框原图
-              private var selectedShapeStyle = 1
-              private val styleButtons = mutableListOf<Button>()
-
-              private val pickGalleryIconLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+              private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                   if (uri != null) {
-                      val bmp = createStyledIconFromUri(uri, selectedShapeStyle)
-                      if (bmp != null) {
-                          returnIconToLauncher(bmp, 0)
-                      } else {
-                          Toast.makeText(this, "图片解析失败，请换一张试试", Toast.LENGTH_SHORT).show()
-                      }
+                      val bmp = makeIconBitmap(uri, shapeStyle)
+                      if (bmp != null) sendIconResult(bmp, 0)
                   }
               }
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   window.statusBarColor = Color.parseColor("#0B0F19")
-                  window.navigationBarColor = Color.parseColor("#0B0F19")
+                  val scroll = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#0B0F19")); isFillViewport = true }
+                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(24), dp(18), dp(36)) }
 
-                  val scroll = ScrollView(this).apply {
-                      setBackgroundColor(Color.parseColor("#0B0F19"))
-                      isFillViewport = true
-                  }
+                  root.addView(TextView(this).apply {
+                      text = "🎨 一加 ColorOS 自定义图标工坊"
+                      textSize = 21f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
+                  })
 
-                  val root = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(20), dp(28), dp(20), dp(40))
+                  val card1 = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL; background = rBg("#151C2C", dp(14)); setPadding(dp(14), dp(14), dp(14), dp(14))
+                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
                   }
+                  card1.addView(TextView(this).apply {
+                      text = "📸 第一步：选择裁切形状 ➔ 从相册选图当图标"; textSize = 14f; setTextColor(Color.parseColor("#00BBF9"))
+                  })
 
-                  val title = TextView(this).apply {
-                      text = "🎨 核芯自定义图标工坊"
-                      textSize = 22f
-                      typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.parseColor("#00F5D4"))
-                  }
-                  val sub = TextView(this).apply {
-                      text = "支持从手机相册任选图片秒变桌面图标，或直接选用下方高定赛博图标"
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#8E9AAF"))
-                      setPadding(0, dp(6), 0, dp(18))
-                  }
-                  root.addView(title)
-                  root.addView(sub)
-
-                  // 卡片 1：相册任意图片转图标
-                  val customCard = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      background = roundedBg("#151C2C", dp(14))
-                      setPadding(dp(16), dp(16), dp(16), dp(16))
-                  }
-
-                  val stepTitle = TextView(this).apply {
-                      text = "📸 第一步：选择相册图片裁切模具"
-                      textSize = 15f
-                      typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.parseColor("#00BBF9"))
-                      setPadding(0, 0, 0, dp(10))
-                  }
-                  customCard.addView(stepTitle)
-
-                  val styles = listOf(
-                      0 to "一加原生圆角",
-                      1 to "赛博霓虹框",
-                      2 to "纯圆图标",
-                      3 to "无裁切原图"
-                  )
-                  val styleGrid = GridLayout(this).apply {
-                      columnCount = 2
-                  }
-                  for ((sId, sName) in styles) {
-                      val btn = Button(this).apply {
-                          text = sName
-                          textSize = 13f
-                          isAllCaps = false
-                          val lp = GridLayout.LayoutParams().apply {
-                              width = 0
-                              height = dp(42)
-                              columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                              setMargins(dp(4), dp(4), dp(4), dp(4))
+                  val gridStyle = GridLayout(this).apply { columnCount = 2 }
+                  listOf(0 to "一加圆角", 1 to "霓虹发光框", 2 to "纯圆头像", 3 to "无裁切原图").forEach { (id, name) ->
+                      val b = Button(this).apply {
+                          text = name; textSize = 12.5f; isAllCaps = false
+                          layoutParams = GridLayout.LayoutParams().apply {
+                              width = 0; height = dp(40); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                              setMargins(dp(4), dp(6), dp(4), dp(4))
                           }
-                          layoutParams = lp
-                          setOnClickListener {
-                              selectedShapeStyle = sId
-                              updateStyleButtonUI()
-                          }
+                          setOnClickListener { shapeStyle = id; refreshStyleUI() }
                       }
-                      styleButtons.add(btn)
-                      styleGrid.addView(btn)
+                      styleBtns.add(b); gridStyle.addView(b)
                   }
-                  updateStyleButtonUI()
-                  customCard.addView(styleGrid)
+                  refreshStyleUI()
+                  card1.addView(gridStyle)
 
-                  val pickPhotoBtn = Button(this).apply {
-                      text = "🖼️ 从手机相册任选一张图片生成图标"
-                      textSize = 15.5f
-                      typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.parseColor("#0B0F19"))
-                      background = roundedBg("#00F5D4", dp(12))
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT
-                      ).apply { topMargin = dp(14) }
-                      layoutParams = lp
-                      setPadding(dp(14), dp(12), dp(14), dp(12))
-                      setOnClickListener {
-                          pickGalleryIconLauncher.launch("image/*")
-                      }
+                  card1.addView(Button(this).apply {
+                      text = "🖼️ 从手机相册任选图片生成桌面图标"
+                      textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#0B0F19"))
+                      background = rBg("#00F5D4", dp(12))
+                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+                      setOnClickListener { pickPhoto.launch("image/*") }
+                  })
+                  root.addView(card1)
+
+                  val card2 = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL; background = rBg("#151C2C", dp(14)); setPadding(dp(14), dp(14), dp(14), dp(14))
+                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
                   }
-                  customCard.addView(pickPhotoBtn)
-                  root.addView(customCard)
+                  card2.addView(TextView(this).apply {
+                      text = "⚡ 或直接点击下方内置高定图标（点击即换）："; textSize = 14f; setTextColor(Color.parseColor("#FEE440"))
+                  })
 
-                  // 卡片 2：内置高定赛博图标库
-                  val packCard = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      background = roundedBg("#151C2C", dp(14))
-                      setPadding(dp(16), dp(16), dp(16), dp(16))
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT
-                      ).apply { topMargin = dp(16) }
-                      layoutParams = lp
-                  }
-
-                  val packHeader = TextView(this).apply {
-                      text = "⚡ 或直接点击下方内置高定图标（点击即换）："
-                      textSize = 15f
-                      typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.parseColor("#FEE440"))
-                      setPadding(0, 0, 0, dp(12))
-                  }
-                  packCard.addView(packHeader)
-
-                  val icons = listOf(
-                      R.drawable.ic_launcher to "聚变核心",
-                      R.drawable.ic_nuclear_cyan to "量子青核",
-                      R.drawable.ic_nuclear_purple to "暗紫反应堆",
-                      R.drawable.ic_blackhole to "引力黑洞",
-                      R.drawable.ic_cyber_wechat to "赛博社交",
-                      R.drawable.ic_cyber_game to "高刷电竞",
-                      R.drawable.ic_cyber_video to "流光影音",
-                      R.drawable.ic_cyber_github to "极客代码",
-                      R.drawable.ic_cyber_camera to "全息影像",
-                      R.drawable.ic_cyber_music to "声波律动",
-                      R.drawable.icon_back to "純粹暗夜框"
-                  )
-
-                  val iconGrid = GridLayout(this).apply {
-                      columnCount = 3
-                  }
-
-                  for ((resId, label) in icons) {
+                  val iconGrid = GridLayout(this).apply { columnCount = 4 }
+                  listOf(
+                      R.drawable.ic_launcher to "聚变核", R.drawable.ic_nuclear_cyan to "量子青",
+                      R.drawable.ic_blackhole to "黑洞", R.drawable.ic_cyber_wechat to "社交",
+                      R.drawable.ic_cyber_game to "电竞", R.drawable.ic_cyber_video to "影音",
+                      R.drawable.ic_cyber_github to "极客", R.drawable.icon_back to "暗夜框"
+                  ).forEach { (resId, label) ->
                       val cell = LinearLayout(this).apply {
-                          orientation = LinearLayout.VERTICAL
-                          gravity = Gravity.CENTER
-                          background = roundedBg("#1E2638", dp(12))
-                          setPadding(dp(8), dp(12), dp(8), dp(10))
-                          val lp = GridLayout.LayoutParams().apply {
-                              width = 0
-                              height = GridLayout.LayoutParams.WRAP_CONTENT
-                              columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                              setMargins(dp(5), dp(5), dp(5), dp(5))
+                          orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                          background = rBg("#1E2638", dp(10)); setPadding(dp(6), dp(10), dp(6), dp(8))
+                          layoutParams = GridLayout.LayoutParams().apply {
+                              width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(6), dp(4), dp(4))
                           }
-                          layoutParams = lp
                           setOnClickListener {
                               val raw = BitmapFactory.decodeResource(resources, resId)
-                              val scaled = Bitmap.createScaledBitmap(raw, 240, 240, true)
-                              returnIconToLauncher(scaled, resId)
+                              sendIconResult(Bitmap.createScaledBitmap(raw, 240, 240, true), resId)
                           }
                       }
-
-                      val iv = ImageView(this).apply {
-                          setImageResource(resId)
-                          layoutParams = LinearLayout.LayoutParams(dp(58), dp(58))
-                      }
-                      val tv = TextView(this).apply {
-                          text = label
-                          textSize = 12f
-                          setTextColor(Color.WHITE)
-                          gravity = Gravity.CENTER
-                          setPadding(0, dp(6), 0, 0)
-                      }
-                      cell.addView(iv)
-                      cell.addView(tv)
+                      cell.addView(ImageView(this).apply { setImageResource(resId); layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)) })
+                      cell.addView(TextView(this).apply { text = label; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
                       iconGrid.addView(cell)
                   }
-
-                  packCard.addView(iconGrid)
-                  root.addView(packCard)
-
-                  scroll.addView(root)
-                  setContentView(scroll)
+                  card2.addView(iconGrid)
+                  root.addView(card2)
+                  scroll.addView(root); setContentView(scroll)
               }
 
-              private fun updateStyleButtonUI() {
-                  styleButtons.forEachIndexed { idx, btn ->
-                      if (idx == selectedShapeStyle) {
-                          btn.background = roundedBg("#7B2CBF", dp(10))
-                          btn.setTextColor(Color.parseColor("#00F5D4"))
-                      } else {
-                          btn.background = roundedBg("#222D42", dp(10))
-                          btn.setTextColor(Color.parseColor("#D9E2EC"))
-                      }
+              private fun refreshStyleUI() {
+                  styleBtns.forEachIndexed { i, b ->
+                      b.background = rBg(if (i == shapeStyle) "#7B2CBF" else "#222D42", dp(8))
+                      b.setTextColor(Color.parseColor(if (i == shapeStyle) "#00F5D4" else "#D9E2EC"))
                   }
               }
 
-              private fun createStyledIconFromUri(uri: Uri, style: Int): Bitmap? {
+              private fun makeIconBitmap(uri: Uri, style: Int): Bitmap? {
                   return try {
-                      val src = contentResolver.openInputStream(uri)?.use {
-                          BitmapFactory.decodeStream(it)
-                      } ?: return null
-
-                      val size = 240
-                      val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-                      val canvas = Canvas(out)
-
-                      // Center-crop 矩阵计算
-                      val scale: Float
-                      var dx = 0f
-                      var dy = 0f
-                      if (src.width * size > size * src.height) {
-                          scale = size.toFloat() / src.height.toFloat()
-                          dx = (size - src.width * scale) * 0.5f
-                      } else {
-                          scale = size.toFloat() / src.width.toFloat()
-                          dy = (size - src.height * scale) * 0.5f
+                      val src = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: return null
+                      val sz = 240
+                      val out = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
+                      val c = Canvas(out)
+                      val sc = maxOf(sz.toFloat() / src.width, sz.toFloat() / src.height)
+                      val m = Matrix().apply {
+                          setScale(sc, sc)
+                          postTranslate((sz - src.width * sc) * 0.5f, (sz - src.height * sc) * 0.5f)
                       }
-                      val shaderMatrix = Matrix().apply {
-                          setScale(scale, scale)
-                          postTranslate(dx, dy)
+                      val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                          shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) }
                       }
-                      val imgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                          shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-                              setLocalMatrix(shaderMatrix)
-                          }
-                      }
-
-                      val pad = 6f
-                      val rect = RectF(pad, pad, size - pad, size - pad)
-
+                      val rect = RectF(6f, 6f, sz - 6f, sz - 6f)
                       when (style) {
-                          0 -> {
-                              // 一加原生圆角
-                              canvas.drawRoundRect(rect, 54f, 54f, imgPaint)
-                          }
+                          0 -> c.drawRoundRect(rect, 54f, 54f, p)
                           1 -> {
-                              // 赛博霓虹发光外框 + 一加圆角
-                              canvas.drawRoundRect(rect, 54f, 54f, imgPaint)
-                              val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                  this.style = Paint.Style.STROKE
-                                  strokeWidth = 6f
-                                  color = Color.parseColor("#00F5D4")
-                              }
-                              canvas.drawRoundRect(rect, 54f, 54f, borderPaint)
+                              c.drawRoundRect(rect, 54f, 54f, p)
+                              c.drawRoundRect(rect, 54f, 54f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                  this.style = Paint.Style.STROKE; strokeWidth = 6f; color = Color.parseColor("#00F5D4")
+                              })
                           }
-                          2 -> {
-                              // 纯圆头像图标
-                              canvas.drawOval(rect, imgPaint)
-                              val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                  this.style = Paint.Style.STROKE
-                                  strokeWidth = 4f
-                                  color = Color.parseColor("#9B5DE5")
-                              }
-                              canvas.drawOval(rect, borderPaint)
-                          }
-                          else -> {
-                              // 无裁切铺满
-                              canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), imgPaint)
-                          }
+                          2 -> c.drawOval(rect, p)
+                          else -> c.drawRect(0f, 0f, sz.toFloat(), sz.toFloat(), p)
                       }
-                      src.recycle()
-                      out
-                  } catch (_: Exception) {
-                      null
-                  }
+                      src.recycle(); out
+                  } catch (_: Exception) { null }
               }
 
-              private fun returnIconToLauncher(bitmap: Bitmap, resId: Int) {
-                  val result = Intent()
-                  result.putExtra("icon", bitmap)
-                  result.putExtra(Intent.EXTRA_SHORTCUT_ICON, bitmap)
-                  if (resId != 0) {
-                      val iconRes = Intent.ShortcutIconResource.fromContext(this, resId)
-                      result.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconRes)
+              private fun sendIconResult(bmp: Bitmap, resId: Int) {
+                  val res = Intent().apply {
+                      putExtra("icon", bmp)
+                      putExtra(Intent.EXTRA_SHORTCUT_ICON, bmp)
+                      if (resId != 0) putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, Intent.ShortcutIconResource.fromContext(this@IconPickerActivity, resId))
                   }
-                  setResult(Activity.RESULT_OK, result)
-                  Toast.makeText(this, "图标已生成并注入桌面！", Toast.LENGTH_SHORT).show()
+                  setResult(Activity.RESULT_OK, res)
+                  Toast.makeText(this, "图标已替换！", Toast.LENGTH_SHORT).show()
                   finish()
               }
 
-              private fun roundedBg(hexColor: String, radiusPx: Int): GradientDrawable {
-                  return GradientDrawable().apply {
-                      shape = GradientDrawable.RECTANGLE
-                      cornerRadius = radiusPx.toFloat()
-                      setColor(Color.parseColor(hexColor))
-                  }
-              }
-
-              private fun dp(value: Int): Int {
-                  return (value * resources.displayMetrics.density).toInt()
-              }
+              private fun rBg(hex: String, r: Int) = GradientDrawable().apply { cornerRadius = r.toFloat(); setColor(Color.parseColor(hex)) }
+              private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -712,21 +435,15 @@ jobs:
           import android.content.ComponentName
           import android.content.Context
           import android.content.Intent
-          import android.graphics.Color
-          import android.graphics.Typeface
+          import android.graphics.*
           import android.graphics.drawable.GradientDrawable
+          import android.media.MediaMetadataRetriever
           import android.net.Uri
           import android.os.Bundle
           import android.view.Gravity
+          import android.view.MotionEvent
           import android.view.View
-          import android.widget.Button
-          import android.widget.ImageView
-          import android.widget.LinearLayout
-          import android.widget.ScrollView
-          import android.widget.SeekBar
-          import android.widget.Switch
-          import android.widget.TextView
-          import android.widget.Toast
+          import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
           import java.io.File
@@ -736,35 +453,32 @@ jobs:
 
               private val prefs by lazy { getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE) }
               private lateinit var statusLabel: TextView
+              private lateinit var previewCanvas: LiveStylePreviewView
+              private lateinit var zoomSeek: SeekBar
+              private lateinit var panXSeek: SeekBar
+              private lateinit var panYSeek: SeekBar
+              private lateinit var zoomText: TextView
+              private lateinit var panXText: TextView
+              private lateinit var panYText: TextView
               private val modeButtons = mutableListOf<Button>()
 
               private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-                  if (uri != null) {
-                      if (copyUriToInternalFile(uri, "custom_image.jpg")) {
-                          val ver = prefs.getInt("media_version", 0) + 1
-                          prefs.edit()
-                              .putInt("mode", 2)
-                              .putInt("media_version", ver)
-                              .apply()
-                          updateModeButtonsUI(2)
-                          statusLabel.text = "当前状态：已载入自定义 3D 视差图片壁纸"
-                          Toast.makeText(this, "图片已注入！可在下方自由缩放和挪位置", Toast.LENGTH_SHORT).show()
-                      }
+                  if (uri != null && copyUriToInternalFile(uri, "custom_image.jpg")) {
+                      val ver = prefs.getInt("media_version", 0) + 1
+                      prefs.edit().putInt("mode", 2).putInt("media_version", ver).apply()
+                      updateModeButtonsUI(2)
+                      previewCanvas.reloadPreviewBitmap()
+                      statusLabel.text = "当前状态：🖼️ 已载入 3D 视差图片（可在下方预览图实时拖拽/缩放）"
                   }
               }
 
               private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-                  if (uri != null) {
-                      if (copyUriToInternalFile(uri, "custom_video.mp4")) {
-                          val ver = prefs.getInt("media_version", 0) + 1
-                          prefs.edit()
-                              .putInt("mode", 3)
-                              .putInt("media_version", ver)
-                              .apply()
-                          updateModeButtonsUI(3)
-                          statusLabel.text = "当前状态：已载入超清视频流壁纸"
-                          Toast.makeText(this, "视频已注入！可在下方自由缩放和挪位置", Toast.LENGTH_SHORT).show()
-                      }
+                  if (uri != null && copyUriToInternalFile(uri, "custom_video.mp4")) {
+                      val ver = prefs.getInt("media_version", 0) + 1
+                      prefs.edit().putInt("mode", 3).putInt("media_version", ver).apply()
+                      updateModeButtonsUI(3)
+                      previewCanvas.reloadPreviewBitmap()
+                      statusLabel.text = "当前状态：🎬 已载入超清视频壁纸（可在下方预览图实时调整大小位置）"
                   }
               }
 
@@ -773,112 +487,138 @@ jobs:
                   window.statusBarColor = Color.parseColor("#0B0F19")
                   window.navigationBarColor = Color.parseColor("#0B0F19")
 
-                  val rootScroll = ScrollView(this).apply {
-                      setBackgroundColor(Color.parseColor("#0B0F19"))
-                      isFillViewport = true
-                  }
+                  val rootScroll = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#0B0F19")); isFillViewport = true }
+                  val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(24), dp(18), dp(40)) }
 
-                  val container = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      setPadding(dp(20), dp(26), dp(20), dp(40))
-                  }
+                  container.addView(TextView(this).apply {
+                      text = "☢️ 核芯壁纸引擎 4.0 · 一加16专版"
+                      textSize = 22f; setTextColor(Color.parseColor("#00F5D4")); typeface = Typeface.DEFAULT_BOLD
+                  })
+                  container.addView(TextView(this).apply {
+                      text = "实时可视化缩放预览窗 | 185Hz 满血高刷 | ColorOS 17 图标包"
+                      textSize = 12.5f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(4), 0, dp(16))
+                  })
 
-                  val titleView = TextView(this).apply {
-                      text = "☢️ 核芯壁纸引擎 3.0 · 一加16终极版"
-                      textSize = 22f
-                      setTextColor(Color.parseColor("#00F5D4"))
-                      typeface = Typeface.DEFAULT_BOLD
-                  }
-                  val subTitleView = TextView(this).apply {
-                      text = "无损自由缩放平移 | 185Hz 满血高刷 | 相册自定义图标包工坊"
-                      textSize = 12.5f
-                      setTextColor(Color.parseColor("#8E9AAF"))
-                      setPadding(0, dp(6), 0, dp(18))
-                  }
-                  container.addView(titleView)
-                  container.addView(subTitleView)
-
-                  val applyBtn = Button(this).apply {
+                  container.addView(Button(this).apply {
                       text = "🚀 一键激活 / 设为系统桌面壁纸"
-                      textSize = 16f
-                      setTextColor(Color.parseColor("#0B0F19"))
-                      typeface = Typeface.DEFAULT_BOLD
-                      background = roundedBg("#00F5D4", dp(14))
-                      setPadding(dp(16), dp(14), dp(16), dp(14))
+                      textSize = 15.5f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
+                      background = roundedBg("#00F5D4", dp(14)); setPadding(dp(14), dp(13), dp(14), dp(13))
                       setOnClickListener {
                           try {
-                              val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
-                                  putExtra(
-                                      WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-                                      ComponentName(this@MainActivity, NuclearWallpaperService::class.java)
-                                  )
-                              }
-                              startActivity(intent)
-                          } catch (e: Exception) {
-                              val fallback = Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                              startActivity(fallback)
+                              startActivity(Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
+                                  putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT, ComponentName(this@MainActivity, NuclearWallpaperService::class.java))
+                              })
+                          } catch (_: Exception) {
+                              startActivity(Intent(WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER))
                           }
                       }
-                  }
-                  container.addView(applyBtn)
+                  })
 
                   statusLabel = TextView(this).apply {
-                      text = getModeDescription(prefs.getInt("mode", 0))
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#FEE440"))
-                      setPadding(dp(4), dp(12), dp(4), dp(6))
+                      text = "当前状态：就绪（下方预览窗支持手指直接拖动壁纸位置）"
+                      textSize = 12.5f; setTextColor(Color.parseColor("#FEE440")); setPadding(dp(4), dp(10), dp(4), dp(4))
                   }
                   container.addView(statusLabel)
 
-                  // 1. 图标工坊置顶卡片
-                  val iconCard = createSectionCard("🎁 一加 16 自定义图标包工坊（已内置）")
-                  val iconGuide = TextView(this).apply {
-                      text = "• 拿相册任意图片当图标：退回一加桌面 ➔ 长按任意软件点【编辑】➔ 点击左侧图标 ➔ 选择【核芯自定义图标包】➔ 即可从手机相册任选图片秒变桌面图标！\n" +
-                             "• 全局一键换整套图标：在桌面双指捏合 ➔ 点底部【图标】➔ 选本应用即可全局套上暗夜霓虹装甲！"
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#D9E2EC"))
-                      setLineSpacing(dp(3).toFloat(), 1f)
-                  }
-                  iconCard.addView(iconGuide)
+                  // 1. 实时大小 & 位置可视化样式预览卡片
+                  val previewCard = createSectionCard("📱 实时壁纸大小缩放 & 桌面布局样式预览图")
+                  previewCard.addView(TextView(this).apply {
+                      text = "💡 虚线框为你的一加16桌面组件与图标参考位置，可【直接用手指在框内拖动壁纸】或拉动下方滑块："
+                      textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, 0, 0, dp(10))
+                  })
 
-                  val openStudioBtn = Button(this).apply {
-                      text = "🎨 预览内置图标库 & 自定义裁切工坊"
-                      textSize = 13.5f
-                      setTextColor(Color.parseColor("#00F5D4"))
-                      background = roundedBg("#222D42", dp(10))
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          dp(42)
-                      ).apply { topMargin = dp(10) }
-                      layoutParams = lp
+                  val previewWrap = LinearLayout(this).apply {
+                      gravity = Gravity.CENTER
+                      setPadding(0, dp(4), 0, dp(12))
+                  }
+                  previewCanvas = LiveStylePreviewView(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(dp(180), dp(390))
+                  }
+                  previewWrap.addView(previewCanvas)
+                  previewCard.addView(previewWrap)
+
+                  val initZoom = prefs.getInt("zoom", 100)
+                  zoomText = TextView(this).apply {
+                      text = "🔍 画面缩放比例：$initZoom%（左滑缩小，右滑放大）"
+                      setTextColor(Color.WHITE); textSize = 13.5f
+                  }
+                  zoomSeek = SeekBar(this).apply {
+                      max = 220; progress = (initZoom - 30).coerceIn(0, 220)
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                              val z = p + 30
+                              zoomText.text = "🔍 画面缩放比例：$z%（左滑缩小，右滑放大）"
+                              prefs.edit().putInt("zoom", z).apply()
+                              previewCanvas.invalidate()
+                          }
+                          override fun onStartTrackingTouch(s: SeekBar?) {}
+                          override fun onStopTrackingTouch(s: SeekBar?) {}
+                      })
+                  }
+                  previewCard.addView(zoomText); previewCard.addView(zoomSeek)
+
+                  val initPanX = prefs.getInt("pan_x", 50)
+                  panXText = TextView(this).apply {
+                      text = "↔️ 水平位置平移 (X轴)：${initPanX - 50}"
+                      setTextColor(Color.WHITE); textSize = 13.5f; setPadding(0, dp(10), 0, 0)
+                  }
+                  panXSeek = SeekBar(this).apply {
+                      max = 100; progress = initPanX
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                              panXText.text = "↔️ 水平位置平移 (X轴)：${p - 50}"
+                              prefs.edit().putInt("pan_x", p).apply()
+                              previewCanvas.invalidate()
+                          }
+                          override fun onStartTrackingTouch(s: SeekBar?) {}
+                          override fun onStopTrackingTouch(s: SeekBar?) {}
+                      })
+                  }
+                  previewCard.addView(panXText); previewCard.addView(panXSeek)
+
+                  val initPanY = prefs.getInt("pan_y", 50)
+                  panYText = TextView(this).apply {
+                      text = "↕️ 垂直位置平移 (Y轴)：${initPanY - 50}"
+                      setTextColor(Color.WHITE); textSize = 13.5f; setPadding(0, dp(10), 0, 0)
+                  }
+                  panYSeek = SeekBar(this).apply {
+                      max = 100; progress = initPanY
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                              panYText.text = "↕️ 垂直位置平移 (Y轴)：${p - 50}"
+                              prefs.edit().putInt("pan_y", p).apply()
+                              previewCanvas.invalidate()
+                          }
+                          override fun onStartTrackingTouch(s: SeekBar?) {}
+                          override fun onStopTrackingTouch(s: SeekBar?) {}
+                      })
+                  }
+                  previewCard.addView(panYText); previewCard.addView(panYSeek)
+
+                  previewCard.addView(Button(this).apply {
+                      text = "🎯 一键复位 100% 居中默认比例"
+                      textSize = 13f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(10))
+                      layoutParams = LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) }
                       setOnClickListener {
-                          startActivity(Intent(this@MainActivity, IconPickerActivity::class.java))
+                          prefs.edit().putInt("zoom", 100).putInt("pan_x", 50).putInt("pan_y", 50).apply()
+                          zoomSeek.progress = 70; panXSeek.progress = 50; panYSeek.progress = 50
+                          previewCanvas.invalidate()
                       }
-                  }
-                  iconCard.addView(openStudioBtn)
-                  container.addView(iconCard)
+                  })
+                  container.addView(previewCard)
 
-                  // 2. 核心模式选择卡片
-                  val modeCard = createSectionCard("🎨 壁纸渲染模式切换（实时生效）")
-                  val modes = listOf(
-                      0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心 (GPU 演算)",
-                      1 to "🕳️ 模式 2：赛博黑洞 · 引力视界星云 (GPU 演算)",
+                  // 2. 核心模式卡片
+                  val modeCard = createSectionCard("🎨 壁纸渲染模式切换（点击切换）")
+                  listOf(
+                      0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心",
+                      1 to "🕳️ 模式 2：赛博黑洞 · 引力透镜星云",
                       2 to "🖼️ 模式 3：全息 3D 视差图片 (点击选相册图片)",
-                      3 to "🎬 模式 4：超清视频流 + 水波纹 (点击选相册视频)"
-                  )
-                  val currentMode = prefs.getInt("mode", 0)
-                  for ((mId, label) in modes) {
+                      3 to "🎬 模式 4：超清视频流壁纸 (点击选相册视频)"
+                  ).forEach { (mId, label) ->
                       val btn = Button(this).apply {
-                          text = label
-                          textSize = 13.5f
-                          isAllCaps = false
-                          gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                          setPadding(dp(14), dp(11), dp(14), dp(11))
-                          val lp = LinearLayout.LayoutParams(
-                              LinearLayout.LayoutParams.MATCH_PARENT,
-                              LinearLayout.LayoutParams.WRAP_CONTENT
-                          ).apply { topMargin = dp(8) }
-                          layoutParams = lp
+                          text = label; textSize = 13.5f; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                          setPadding(dp(14), dp(10), dp(14), dp(10))
+                          layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
                           setOnClickListener {
                               when (mId) {
                                   2 -> pickImageLauncher.launch("image/*")
@@ -886,286 +626,232 @@ jobs:
                                   else -> {
                                       prefs.edit().putInt("mode", mId).apply()
                                       updateModeButtonsUI(mId)
-                                      statusLabel.text = getModeDescription(mId)
+                                      previewCanvas.reloadPreviewBitmap()
                                   }
                               }
                           }
                       }
-                      modeButtons.add(btn)
-                      modeCard.addView(btn)
+                      modeButtons.add(btn); modeCard.addView(btn)
                   }
-                  updateModeButtonsUI(currentMode)
+                  updateModeButtonsUI(prefs.getInt("mode", 0))
                   container.addView(modeCard)
 
-                  // 3. 壁纸自由缩放 & 上下左右位置调节卡片
-                  val zoomCard = createSectionCard("🔍 壁纸画面自由放大缩小 & 位置微调")
+                  // 3. 一加 16 ColorOS 17 图标工坊卡片
+                  val iconCard = createSectionCard("🎁 一加 16 (ColorOS 17) 自定义图标工坊")
+                  iconCard.addView(TextView(this).apply {
+                      text = "• 单个软件换相册图标：桌面长按任意软件 ➔ 点【编辑】➔ 点图标 ➔ 选【核芯自定义图标包】即可拿相册图片当图标！\n" +
+                             "• 全局换暗夜霓虹框：桌面双指捏合 ➔ 点底部【图标】➔ 选本软件应用！"
+                      textSize = 12.5f; setTextColor(Color.parseColor("#D9E2EC")); setLineSpacing(dp(3).toFloat(), 1f)
+                  })
+                  iconCard.addView(Button(this).apply {
+                      text = "🎨 打开内置图标库 & 自定义相册裁切工坊"
+                      textSize = 13.5f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(10))
+                      layoutParams = LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) }
+                      setOnClickListener { startActivity(Intent(this@MainActivity, IconPickerActivity::class.java)) }
+                  })
+                  container.addView(iconCard)
 
-                  val initZoom = prefs.getInt("zoom", 100)
-                  val zoomText = TextView(this).apply {
-                      text = "画面缩放比例：$initZoom%（左滑缩小，右滑放大）"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(6), 0, dp(4))
-                  }
-                  val zoomSeek = SeekBar(this).apply {
-                      max = 220
-                      progress = (initZoom - 30).coerceIn(0, 220)
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                              val z = progress + 30
-                              zoomText.text = "画面缩放比例：$z%（左滑缩小，右滑放大）"
-                              prefs.edit().putInt("zoom", z).apply()
-                          }
-                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                      })
-                  }
-                  zoomCard.addView(zoomText)
-                  zoomCard.addView(zoomSeek)
-
-                  val initPanX = prefs.getInt("pan_x", 50)
-                  val panXText = TextView(this).apply {
-                      text = "水平位置平移 (X轴)：${initPanX - 50}"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(12), 0, dp(4))
-                  }
-                  val panXSeek = SeekBar(this).apply {
-                      max = 100
-                      progress = initPanX
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                              panXText.text = "水平位置平移 (X轴)：${progress - 50}"
-                              prefs.edit().putInt("pan_x", progress).apply()
-                          }
-                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                      })
-                  }
-                  zoomCard.addView(panXText)
-                  zoomCard.addView(panXSeek)
-
-                  val initPanY = prefs.getInt("pan_y", 50)
-                  val panYText = TextView(this).apply {
-                      text = "垂直位置平移 (Y轴)：${initPanY - 50}"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(12), 0, dp(4))
-                  }
-                  val panYSeek = SeekBar(this).apply {
-                      max = 100
-                      progress = initPanY
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                              panYText.text = "垂直位置平移 (Y轴)：${progress - 50}"
-                              prefs.edit().putInt("pan_y", progress).apply()
-                          }
-                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                      })
-                  }
-                  zoomCard.addView(panYText)
-                  zoomCard.addView(panYSeek)
-
-                  val resetZoomBtn = Button(this).apply {
-                      text = "🎯 一键复位缩放与居中位置 (100%)"
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#00F5D4"))
-                      background = roundedBg("#222D42", dp(10))
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          dp(40)
-                      ).apply { topMargin = dp(12) }
-                      layoutParams = lp
-                      setOnClickListener {
-                          prefs.edit()
-                              .putInt("zoom", 100)
-                              .putInt("pan_x", 50)
-                              .putInt("pan_y", 50)
-                              .apply()
-                          zoomSeek.progress = 70
-                          panXSeek.progress = 50
-                          panYSeek.progress = 50
-                          Toast.makeText(this@MainActivity, "已恢复 100% 居中默认比例", Toast.LENGTH_SHORT).show()
-                      }
-                  }
-                  zoomCard.addView(resetZoomBtn)
-                  container.addView(zoomCard)
-
-                  // 4. 一加 16 专属高刷与陀螺仪参数
-                  val paramCard = createSectionCard("⚡ 一加 16 满血高刷 & 陀螺仪视差")
-
-                  val currentFps = prefs.getInt("fps", 120)
+                  // 4. 高刷与视差设置卡片
+                  val paramCard = createSectionCard("⚡ 一加 16 满血高刷 & 陀螺仪视差设置")
                   val fpsLabel = TextView(this).apply {
-                      text = "当前目标刷新率上限：$currentFps Hz"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(6), 0, dp(6))
+                      text = "当前刷新率上限：${prefs.getInt("fps", 120)} Hz"; setTextColor(Color.WHITE); textSize = 13.5f
                   }
                   paramCard.addView(fpsLabel)
-
-                  val fpsRow = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                  }
+                  val fpsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, dp(8)) }
                   listOf(60, 120, 165, 185).forEach { fpsVal ->
-                      val fBtn = Button(this).apply {
-                          text = "${fpsVal}Hz"
-                          textSize = 12.5f
-                          setTextColor(Color.WHITE)
-                          background = roundedBg("#252F42", dp(8))
-                          val lp = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
-                              marginEnd = dp(6)
-                          }
-                          layoutParams = lp
+                      fpsRow.addView(Button(this).apply {
+                          text = "${fpsVal}Hz"; textSize = 12f; setTextColor(Color.WHITE); background = roundedBg("#252F42", dp(8))
+                          layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(6) }
                           setOnClickListener {
                               prefs.edit().putInt("fps", fpsVal).apply()
-                              fpsLabel.text = "当前目标刷新率上限：$fpsVal Hz"
-                              Toast.makeText(this@MainActivity, "已解锁 $fpsVal Hz 档位", Toast.LENGTH_SHORT).show()
+                              fpsLabel.text = "当前刷新率上限：$fpsVal Hz"
                           }
-                      }
-                      fpsRow.addView(fBtn)
+                      })
                   }
                   paramCard.addView(fpsRow)
-
-                  val initParallax = prefs.getInt("parallax", 65)
-                  val parallaxText = TextView(this).apply {
-                      text = "陀螺仪 3D 景深偏移强度：$initParallax%"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(14), 0, dp(4))
-                  }
-                  val parallaxSeek = SeekBar(this).apply {
-                      max = 100
-                      progress = initParallax
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                              parallaxText.text = "陀螺仪 3D 景深偏移强度：$progress%"
-                              prefs.edit().putInt("parallax", progress).apply()
-                          }
-                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                      })
-                  }
-                  paramCard.addView(parallaxText)
-                  paramCard.addView(parallaxSeek)
-
-                  val initSpeed = prefs.getInt("speed", 50)
-                  val speedText = TextView(this).apply {
-                      text = "着色器能量演化速率：$initSpeed%"
-                      setTextColor(Color.WHITE)
-                      textSize = 13.5f
-                      setPadding(0, dp(12), 0, dp(4))
-                  }
-                  val speedSeek = SeekBar(this).apply {
-                      max = 100
-                      progress = initSpeed
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                              speedText.text = "着色器能量演化速率：$progress%"
-                              prefs.edit().putInt("speed", progress).apply()
-                          }
-                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-                      })
-                  }
-                  paramCard.addView(speedText)
-                  paramCard.addView(speedSeek)
+                  paramCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
+                  paramCard.addView(createSwitchRow("叠加 3D 悬浮赛博星尘粒子层", "particles", true))
+                  paramCard.addView(createSwitchRow("视频壁纸模式开启原声播放", "video_audio", false))
                   container.addView(paramCard)
-
-                  // 5. 交互与特效开关
-                  val switchCard = createSectionCard("✨ 交互水波纹与多维图层开关")
-                  switchCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
-                  switchCard.addView(createSwitchRow("叠加 3D 悬浮赛博星尘粒子层", "particles", true))
-                  switchCard.addView(createSwitchRow("视频壁纸模式开启原声播放", "video_audio", false))
-                  container.addView(switchCard)
 
                   rootScroll.addView(container)
                   setContentView(rootScroll)
               }
 
-              private fun updateModeButtonsUI(selectedMode: Int) {
-                  modeButtons.forEachIndexed { index, btn ->
-                      if (index == selectedMode) {
-                          btn.background = roundedBg("#7B2CBF", dp(10))
-                          btn.setTextColor(Color.parseColor("#00F5D4"))
-                      } else {
-                          btn.background = roundedBg("#1E2638", dp(10))
-                          btn.setTextColor(Color.parseColor("#D9E2EC"))
+              // 实时可视化缩放与桌面图标参考框自定义 View
+              inner class LiveStylePreviewView(ctx: Context) : View(ctx) {
+                  private var previewBmp: Bitmap? = null
+                  private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+                  private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat(); color = Color.parseColor("#00F5D4")
+                  }
+                  private val dashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#88FFFFFF")
+                      pathEffect = DashPathEffect(floatArrayOf(10f, 8f), 0f)
+                  }
+                  private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      color = Color.parseColor("#CCFFFFFF"); textSize = dp(10).toFloat(); textAlign = Paint.Align.CENTER
+                  }
+                  private val clipPath = Path()
+                  private var lastTouchX = 0f
+                  private var lastTouchY = 0f
+
+                  init {
+                      reloadPreviewBitmap()
+                  }
+
+                  fun reloadPreviewBitmap() {
+                      previewBmp?.recycle()
+                      previewBmp = null
+                      val mode = prefs.getInt("mode", 0)
+                      try {
+                          if (mode == 2) {
+                              val f = File(filesDir, "custom_image.jpg")
+                              if (f.exists()) {
+                                  val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
+                                  previewBmp = BitmapFactory.decodeFile(f.absolutePath, opts)
+                              }
+                          } else if (mode == 3) {
+                              val f = File(filesDir, "custom_video.mp4")
+                              if (f.exists()) {
+                                  val mmr = MediaMetadataRetriever()
+                                  mmr.setDataSource(f.absolutePath)
+                                  previewBmp = mmr.getFrameAtTime(0)
+                                  mmr.release()
+                              }
+                          }
+                      } catch (_: Exception) {}
+                      invalidate()
+                  }
+
+                  override fun onTouchEvent(event: MotionEvent): Boolean {
+                      when (event.actionMasked) {
+                          MotionEvent.ACTION_DOWN -> {
+                              parent?.requestDisallowInterceptTouchEvent(true)
+                              lastTouchX = event.x; lastTouchY = event.y
+                              return true
+                          }
+                          MotionEvent.ACTION_MOVE -> {
+                              val dx = (event.x - lastTouchX) / width.coerceAtLeast(1)
+                              val dy = (event.y - lastTouchY) / height.coerceAtLeast(1)
+                              lastTouchX = event.x; lastTouchY = event.y
+                              val newPanX = (prefs.getInt("pan_x", 50) + (dx * 100).toInt()).coerceIn(0, 100)
+                              val newPanY = (prefs.getInt("pan_y", 50) + (dy * 100).toInt()).coerceIn(0, 100)
+                              panXSeek.progress = newPanX
+                              panYSeek.progress = newPanY
+                              invalidate()
+                              return true
+                          }
+                          MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                              parent?.requestDisallowInterceptTouchEvent(false)
+                          }
                       }
+                      return super.onTouchEvent(event)
+                  }
+
+                  override fun onDraw(canvas: Canvas) {
+                      super.onDraw(canvas)
+                      val w = width.toFloat(); val h = height.toFloat()
+                      val rect = RectF(4f, 4f, w - 4f, h - 4f)
+                      clipPath.reset()
+                      clipPath.addRoundRect(rect, dp(18).toFloat(), dp(18).toFloat(), Path.Direction.CW)
+
+                      canvas.save()
+                      canvas.clipPath(clipPath)
+                      canvas.drawColor(Color.parseColor("#080B14"))
+
+                      val zoom = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 2.5f)
+                      val panX = (prefs.getInt("pan_x", 50) - 50) / 100f
+                      val panY = (prefs.getInt("pan_y", 50) - 50) / 100f
+                      val cx = w * 0.5f + panX * w
+                      val cy = h * 0.5f + panY * h
+
+                      val bmp = previewBmp
+                      if (bmp != null && bmp.width > 0 && bmp.height > 0) {
+                          val baseScale = maxOf(w / bmp.width, h / bmp.height)
+                          val finalScale = baseScale * (zoom / 0.90f)
+                          val bw = bmp.width * finalScale
+                          val bh = bmp.height * finalScale
+                          val dst = RectF(cx - bw * 0.5f, cy - bh * 0.5f, cx + bw * 0.5f, cy + bh * 0.5f)
+                          // 绘制暗化背景与主图区域
+                          paint.alpha = 55
+                          canvas.drawBitmap(bmp, null, rect, paint)
+                          paint.alpha = 255
+                          canvas.drawBitmap(bmp, null, dst, paint)
+                          canvas.drawRect(dst, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                              style = Paint.Style.STROKE; strokeWidth = 3f; color = Color.parseColor("#FEE440")
+                          })
+                      } else {
+                          // 内置核聚变/黑洞实时缩放示意环
+                          for (i in 1..4) {
+                              val r = (w * 0.12f * i) * zoom
+                              canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                  style = Paint.Style.STROKE; strokeWidth = 4f
+                                  color = if (i % 2 == 0) Color.parseColor("#00F5D4") else Color.parseColor("#9B5DE5")
+                              })
+                          }
+                      }
+
+                      // 叠加一加 16 桌面布局参考虚线（顶部自选照片小组件 + 图标网格 + 底部 Dock 栏）
+                      val widgetRect = RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.25f)
+                      canvas.drawRoundRect(widgetRect, dp(10).toFloat(), dp(10).toFloat(), dashPaint)
+                      canvas.drawText("桌面顶部小组件区", w * 0.5f, h * 0.17f, textPaint)
+
+                      for (row in 0..2) {
+                          for (col in 0..3) {
+                              val ix = w * (0.14f + col * 0.22f)
+                              val iy = h * (0.34f + row * 0.13f)
+                              canvas.drawRoundRect(RectF(ix, iy, ix + w * 0.12f, iy + w * 0.12f), dp(4).toFloat(), dp(4).toFloat(), dashPaint)
+                          }
+                      }
+                      val dockRect = RectF(w * 0.08f, h * 0.86f, w * 0.92f, h * 0.95f)
+                      canvas.drawRoundRect(dockRect, dp(10).toFloat(), dp(10).toFloat(), dashPaint)
+                      canvas.drawText("缩放:${(zoom*100).toInt()}% (按住画面可拖动)", w * 0.5f, h * 0.82f, textPaint)
+
+                      canvas.restore()
+                      canvas.drawRoundRect(rect, dp(18).toFloat(), dp(18).toFloat(), framePaint)
                   }
               }
 
-              private fun getModeDescription(mode: Int): String {
-                  return when (mode) {
-                      0 -> "当前状态：☢️ 手搓核弹 · 聚变等离子核心运行中"
-                      1 -> "当前状态：🕳️ 赛博黑洞 · 引力透镜视界运行中"
-                      2 -> "当前状态：🖼️ 全息 3D 视差自定义图片模式"
-                      3 -> "当前状态：🎬 超清视频流 + 实时 Shader 后处理模式"
-                      else -> "当前状态：就绪"
+              private fun updateModeButtonsUI(selectedMode: Int) {
+                  modeButtons.forEachIndexed { index, btn ->
+                      btn.background = roundedBg(if (index == selectedMode) "#7B2CBF" else "#1E2638", dp(10))
+                      btn.setTextColor(Color.parseColor(if (index == selectedMode) "#00F5D4" else "#D9E2EC"))
                   }
               }
 
               private fun createSectionCard(title: String): LinearLayout {
                   val card = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL
-                      background = roundedBg("#151C2C", dp(14))
-                      setPadding(dp(16), dp(16), dp(16), dp(16))
-                      val lp = LinearLayout.LayoutParams(
-                          LinearLayout.LayoutParams.MATCH_PARENT,
-                          LinearLayout.LayoutParams.WRAP_CONTENT
-                      ).apply { topMargin = dp(14) }
-                      layoutParams = lp
+                      orientation = LinearLayout.VERTICAL; background = roundedBg("#151C2C", dp(14))
+                      setPadding(dp(15), dp(15), dp(15), dp(15))
+                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
                   }
-                  val header = TextView(this).apply {
-                      text = title
-                      textSize = 15f
-                      typeface = Typeface.DEFAULT_BOLD
-                      setTextColor(Color.parseColor("#00BBF9"))
-                      setPadding(0, 0, 0, dp(6))
-                  }
-                  card.addView(header)
+                  card.addView(TextView(this).apply {
+                      text = title; textSize = 14.5f; typeface = Typeface.DEFAULT_BOLD
+                      setTextColor(Color.parseColor("#00BBF9")); setPadding(0, 0, 0, dp(6))
+                  })
                   return card
               }
 
               private fun createSwitchRow(label: String, key: String, defVal: Boolean): View {
                   return Switch(this).apply {
-                      text = label
-                      textSize = 13.5f
-                      setTextColor(Color.WHITE)
-                      isChecked = prefs.getBoolean(key, defVal)
-                      setPadding(0, dp(10), 0, dp(10))
-                      setOnCheckedChangeListener { _, isChecked ->
-                          prefs.edit().putBoolean(key, isChecked).apply()
-                      }
+                      text = label; textSize = 13f; setTextColor(Color.WHITE)
+                      isChecked = prefs.getBoolean(key, defVal); setPadding(0, dp(8), 0, dp(8))
+                      setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean(key, isChecked).apply() }
                   }
               }
 
               private fun copyUriToInternalFile(uri: Uri, targetName: String): Boolean {
                   return try {
                       contentResolver.openInputStream(uri)?.use { input ->
-                          val outFile = File(filesDir, targetName)
-                          FileOutputStream(outFile).use { output ->
-                              input.copyTo(output)
-                          }
+                          FileOutputStream(File(filesDir, targetName)).use { output -> input.copyTo(output) }
                       }
                       true
-                  } catch (e: Exception) {
-                      Toast.makeText(this, "读取文件失败: ${e.message}", Toast.LENGTH_LONG).show()
-                      false
-                  }
+                  } catch (_: Exception) { false }
               }
 
-              private fun roundedBg(hexColor: String, radiusPx: Int): GradientDrawable {
-                  return GradientDrawable().apply {
-                      shape = GradientDrawable.RECTANGLE
-                      cornerRadius = radiusPx.toFloat()
-                      setColor(Color.parseColor(hexColor))
-                  }
-              }
-
-              private fun dp(value: Int): Int {
-                  return (value * resources.displayMetrics.density).toInt()
-              }
+              private fun roundedBg(hex: String, r: Int) = GradientDrawable().apply { cornerRadius = r.toFloat(); setColor(Color.parseColor(hex)) }
+              private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -1181,14 +867,7 @@ jobs:
           import android.hardware.SensorEventListener
           import android.hardware.SensorManager
           import android.media.MediaPlayer
-          import android.opengl.EGL14
-          import android.opengl.EGLConfig
-          import android.opengl.EGLContext
-          import android.opengl.EGLDisplay
-          import android.opengl.EGLSurface
-          import android.opengl.GLES11Ext
-          import android.opengl.GLES20
-          import android.opengl.GLUtils
+          import android.opengl.*
           import android.service.wallpaper.WallpaperService
           import android.view.MotionEvent
           import android.view.Surface
@@ -1200,21 +879,11 @@ jobs:
           import java.util.concurrent.atomic.AtomicBoolean
 
           class NuclearWallpaperService : WallpaperService() {
+              override fun onCreateEngine(): Engine = NuclearEngine()
 
-              override fun onCreateEngine(): Engine {
-                  return NuclearEngine()
-              }
-
-              inner class NuclearEngine : Engine(), SensorEventListener,
-                  SharedPreferences.OnSharedPreferenceChangeListener {
-
-                  private val prefs by lazy {
-                      applicationContext.getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE)
-                  }
-                  private val sensorManager by lazy {
-                      applicationContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-                  }
-
+              inner class NuclearEngine : Engine(), SensorEventListener, SharedPreferences.OnSharedPreferenceChangeListener {
+                  private val prefs by lazy { applicationContext.getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE) }
+                  private val sensorManager by lazy { applicationContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
                   private var renderThread: GLRenderThread? = null
                   private var isEngineVisible = false
 
@@ -1232,7 +901,7 @@ jobs:
 
                   override fun onDestroy() {
                       prefs.unregisterOnSharedPreferenceChangeListener(this)
-                      unregisterSensors()
+                      sensorManager.unregisterListener(this)
                       stopRenderThread()
                       super.onDestroy()
                   }
@@ -1241,17 +910,20 @@ jobs:
                       super.onVisibilityChanged(visible)
                       isEngineVisible = visible
                       if (visible) {
-                          registerSensors()
+                          sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                              sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                          }
                           renderThread?.setPaused(false)
                       } else {
-                          unregisterSensors()
+                          sensorManager.unregisterListener(this)
                           renderThread?.setPaused(true)
                       }
                   }
 
                   override fun onSurfaceCreated(holder: SurfaceHolder) {
                       super.onSurfaceCreated(holder)
-                      startRenderThread(holder)
+                      stopRenderThread()
+                      renderThread = GLRenderThread(holder).apply { start(); setPaused(!isEngineVisible) }
                   }
 
                   override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
@@ -1277,19 +949,8 @@ jobs:
                       super.onTouchEvent(event)
                   }
 
-                  override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+                  override fun onSharedPreferenceChanged(sp: SharedPreferences?, key: String?) {
                       renderThread?.notifyPrefsChanged()
-                  }
-
-                  private fun registerSensors() {
-                      val accel = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-                      if (accel != null) {
-                          sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME)
-                      }
-                  }
-
-                  private fun unregisterSensors() {
-                      sensorManager.unregisterListener(this)
                   }
 
                   override fun onSensorChanged(event: SensorEvent) {
@@ -1301,25 +962,12 @@ jobs:
 
                   override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-                  private fun startRenderThread(holder: SurfaceHolder) {
-                      stopRenderThread()
-                      renderThread = GLRenderThread(holder).apply {
-                          start()
-                          setPaused(!isEngineVisible)
-                      }
-                  }
-
                   private fun stopRenderThread() {
-                      renderThread?.let { thread ->
-                          thread.requestStop()
-                          try {
-                              thread.join(1200)
-                          } catch (_: InterruptedException) {}
-                      }
+                      renderThread?.let { it.requestStop(); try { it.join(1000) } catch (_: Exception) {} }
                       renderThread = null
                   }
 
-                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGLThread") {
+                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGL") {
                       @Volatile var screenWidth = 1080
                       @Volatile var screenHeight = 2400
                       @Volatile var currentElapsedSec = 0f
@@ -1329,9 +977,9 @@ jobs:
                       private val prefsDirty = AtomicBoolean(true)
                       private val videoFrameAvailable = AtomicBoolean(false)
 
-                      private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
-                      private var eglContext: EGLContext = EGL14.EGL_NO_CONTEXT
-                      private var eglSurface: EGLSurface = EGL14.EGL_NO_SURFACE
+                      private var eglDisplay = EGL14.EGL_NO_DISPLAY
+                      private var eglContext = EGL14.EGL_NO_CONTEXT
+                      private var eglSurface = EGL14.EGL_NO_SURFACE
 
                       private var progStandard = 0
                       private var progVideo = 0
@@ -1345,10 +993,9 @@ jobs:
                       private var activeMode = 0
                       private var targetFps = 120
                       private var parallaxStrength = 0.65f
-                      private var speedFactor = 1.0f
                       private var zoomFactor = 1.0f
-                      private var panX = 0.0f
-                      private var panY = 0.0f
+                      private var panX = 0f
+                      private var panY = 0f
                       private var rippleEnabled = true
                       private var particlesEnabled = true
                       private var videoAudioEnabled = false
@@ -1356,83 +1003,39 @@ jobs:
                       private var mediaAspect = 0.5625f
                       private var hasValidImage = false
                       private var hasValidVideo = false
-
                       private var smoothTiltX = 0f
                       private var smoothTiltY = 0f
 
-                      private val quadVertices = floatArrayOf(
-                          -1f, -1f,
-                           1f, -1f,
-                          -1f,  1f,
-                           1f,  1f
-                      )
-                      private val vertexBuffer: FloatBuffer = ByteBuffer
-                          .allocateDirect(quadVertices.size * 4)
-                          .order(ByteOrder.nativeOrder())
-                          .asFloatBuffer()
-                          .apply {
-                              put(quadVertices)
-                              position(0)
-                          }
-
-                      fun updateSurfaceSize(w: Int, h: Int) {
-                          if (w > 0 && h > 0) {
-                              screenWidth = w
-                              screenHeight = h
-                          }
+                      private val vertexBuffer: FloatBuffer = ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder()).asFloatBuffer().apply {
+                          put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0)
                       }
 
-                      fun setPaused(p: Boolean) {
-                          paused.set(p)
-                          synchronized(this) {
-                              (this as Object).notifyAll()
-                          }
-                      }
-
-                      fun notifyPrefsChanged() {
-                          prefsDirty.set(true)
-                          synchronized(this) {
-                              (this as Object).notifyAll()
-                          }
-                      }
-
-                      fun requestStop() {
-                          running.set(false)
-                          synchronized(this) {
-                              (this as Object).notifyAll()
-                          }
-                      }
+                      fun updateSurfaceSize(w: Int, h: Int) { if (w > 0 && h > 0) { screenWidth = w; screenHeight = h } }
+                      fun setPaused(p: Boolean) { paused.set(p); synchronized(this) { (this as Object).notifyAll() } }
+                      fun notifyPrefsChanged() { prefsDirty.set(true); synchronized(this) { (this as Object).notifyAll() } }
+                      fun requestStop() { running.set(false); synchronized(this) { (this as Object).notifyAll() } }
 
                       override fun run() {
                           if (!initEGL()) return
-                          initGLResources()
-
-                          val startTimeNs = System.nanoTime()
-
+                          initGL()
+                          val startNs = System.nanoTime()
                           while (running.get()) {
                               synchronized(this) {
                                   while (paused.get() && running.get()) {
-                                      pauseVideoSafe()
-                                      try {
-                                          (this as Object).wait()
-                                      } catch (_: InterruptedException) {}
+                                      try { mediaPlayer?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {}
+                                      try { (this as Object).wait() } catch (_: Exception) {}
                                   }
                               }
                               if (!running.get()) break
-
-                              if (prefsDirty.compareAndSet(true, false)) {
-                                  syncPreferencesAndMedia()
-                              }
-
+                              if (prefsDirty.compareAndSet(true, false)) syncPrefs()
                               if (activeMode == 3 && hasValidVideo) {
-                                  resumeVideoSafe()
+                                  try { mediaPlayer?.let { if (!it.isPlaying) it.start() } } catch (_: Exception) {}
                               } else {
-                                  pauseVideoSafe()
+                                  try { mediaPlayer?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {}
                               }
 
-                              val frameStartMs = System.currentTimeMillis()
-                              currentElapsedSec = (System.nanoTime() - startTimeNs) / 1_000_000_000f
-
+                              val t0 = System.currentTimeMillis()
+                              currentElapsedSec = (System.nanoTime() - startNs) / 1_000_000_000f
                               smoothTiltX += (targetTiltX - smoothTiltX) * 0.08f
                               smoothTiltY += (targetTiltY - smoothTiltY) * 0.08f
 
@@ -1440,500 +1043,119 @@ jobs:
                               EGL14.eglSwapBuffers(eglDisplay, eglSurface)
 
                               if (targetFps < 144) {
-                                  val frameBudgetMs = (1000L / targetFps.coerceIn(30, 120))
-                                  val sleepMs = frameBudgetMs - (System.currentTimeMillis() - frameStartMs)
-                                  if (sleepMs > 1L) {
-                                      try {
-                                          sleep(sleepMs)
-                                      } catch (_: InterruptedException) {}
-                                  }
+                                  val sleepMs = (1000L / targetFps.coerceIn(30, 120)) - (System.currentTimeMillis() - t0)
+                                  if (sleepMs > 1L) try { sleep(sleepMs) } catch (_: Exception) {}
                               }
                           }
-
                           releaseAll()
                       }
 
-                      private fun syncPreferencesAndMedia() {
+                      private fun syncPrefs() {
                           val prevMode = activeMode
-                          val newVersion = prefs.getInt("media_version", 0)
+                          val newVer = prefs.getInt("media_version", 0)
                           activeMode = prefs.getInt("mode", 0)
                           targetFps = prefs.getInt("fps", 120)
                           parallaxStrength = prefs.getInt("parallax", 65) / 100f
-                          speedFactor = 0.25f + (prefs.getInt("speed", 50) / 100f) * 1.75f
                           zoomFactor = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 2.5f)
-                          panX = ((prefs.getInt("pan_x", 50) - 50) / 100f)
-                          panY = ((prefs.getInt("pan_y", 50) - 50) / 100f)
+                          panX = (prefs.getInt("pan_x", 50) - 50) / 100f
+                          panY = (prefs.getInt("pan_y", 50) - 50) / 100f
                           rippleEnabled = prefs.getBoolean("ripple", true)
                           particlesEnabled = prefs.getBoolean("particles", true)
                           videoAudioEnabled = prefs.getBoolean("video_audio", false)
 
-                          val needReloadMedia = (newVersion != loadedMediaVersion) || (prevMode != activeMode)
-                          loadedMediaVersion = newVersion
+                          val reload = (newVer != loadedMediaVersion) || (prevMode != activeMode)
+                          loadedMediaVersion = newVer
 
-                          if (activeMode == 2 && (needReloadMedia || !hasValidImage)) {
-                              loadCustomImageTexture()
-                          } else if (activeMode == 3 && (needReloadMedia || !hasValidVideo)) {
-                              setupCustomVideoPlayer()
-                          }
-
-                          mediaPlayer?.let { mp ->
-                              try {
-                                  val vol = if (videoAudioEnabled) 1f else 0f
-                                  mp.setVolume(vol, vol)
-                              } catch (_: Exception) {}
-                          }
-                      }
-
-                      private fun loadCustomImageTexture() {
-                          val imgFile = File(applicationContext.filesDir, "custom_image.jpg")
-                          if (!imgFile.exists()) {
-                              hasValidImage = false
-                              return
-                          }
-                          try {
-                              val opts = BitmapFactory.Options().apply {
-                                  inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
-                              }
-                              val bmp = BitmapFactory.decodeFile(imgFile.absolutePath, opts)
-                              if (bmp != null && bmp.width > 0 && bmp.height > 0) {
-                                  mediaAspect = bmp.width.toFloat() / bmp.height.toFloat()
-                                  GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
-                                  GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
-                                  bmp.recycle()
-                                  hasValidImage = true
-                              } else {
-                                  hasValidImage = false
-                              }
-                          } catch (_: Exception) {
-                              hasValidImage = false
-                          }
-                      }
-
-                      private fun setupCustomVideoPlayer() {
-                          val vidFile = File(applicationContext.filesDir, "custom_video.mp4")
-                          if (!vidFile.exists()) {
-                              hasValidVideo = false
-                              return
-                          }
-                          try {
-                              releaseMediaPlayerOnly()
-                              if (surfaceTexture == null) {
-                                  surfaceTexture = SurfaceTexture(videoOesTexId).apply {
-                                      setOnFrameAvailableListener {
-                                          videoFrameAvailable.set(true)
-                                      }
+                          if (activeMode == 2 && (reload || !hasValidImage)) {
+                              val f = File(applicationContext.filesDir, "custom_image.jpg")
+                              if (f.exists()) {
+                                  val bmp = BitmapFactory.decodeFile(f.absolutePath)
+                                  if (bmp != null) {
+                                      mediaAspect = bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
+                                      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
+                                      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
+                                      bmp.recycle(); hasValidImage = true
                                   }
-                                  videoSurface = Surface(surfaceTexture)
                               }
-                              mediaPlayer = MediaPlayer().apply {
-                                  setDataSource(vidFile.absolutePath)
-                                  setSurface(videoSurface)
-                                  isLooping = true
-                                  val vol = if (videoAudioEnabled) 1f else 0f
-                                  setVolume(vol, vol)
-                                  setOnVideoSizeChangedListener { _, w, h ->
-                                      if (w > 0 && h > 0) {
-                                          mediaAspect = w.toFloat() / h.toFloat()
+                          } else if (activeMode == 3 && (reload || !hasValidVideo)) {
+                              val f = File(applicationContext.filesDir, "custom_video.mp4")
+                              if (f.exists()) {
+                                  try {
+                                      mediaPlayer?.release()
+                                      if (surfaceTexture == null) {
+                                          surfaceTexture = SurfaceTexture(videoOesTexId).apply { setOnFrameAvailableListener { videoFrameAvailable.set(true) } }
+                                          videoSurface = Surface(surfaceTexture)
                                       }
-                                  }
-                                  prepare()
-                                  start()
+                                      mediaPlayer = MediaPlayer().apply {
+                                          setDataSource(f.absolutePath); setSurface(videoSurface); isLooping = true
+                                          val v = if (videoAudioEnabled) 1f else 0f; setVolume(v, v)
+                                          setOnVideoSizeChangedListener { _, w, h -> if (w > 0 && h > 0) mediaAspect = w.toFloat() / h }
+                                          prepare(); start()
+                                      }
+                                      hasValidVideo = true
+                                  } catch (_: Exception) { hasValidVideo = false }
                               }
-                              hasValidVideo = true
-                          } catch (_: Exception) {
-                              hasValidVideo = false
                           }
-                      }
-
-                      private fun pauseVideoSafe() {
-                          try {
-                              mediaPlayer?.let {
-                                  if (it.isPlaying) it.pause()
-                              }
-                          } catch (_: Exception) {}
-                      }
-
-                      private fun resumeVideoSafe() {
-                          try {
-                              mediaPlayer?.let {
-                                  if (!it.isPlaying) it.start()
-                              }
-                          } catch (_: Exception) {}
+                          try { mediaPlayer?.let { val v = if (videoAudioEnabled) 1f else 0f; it.setVolume(v, v) } } catch (_: Exception) {}
                       }
 
                       private fun drawFrame() {
                           GLES20.glViewport(0, 0, screenWidth, screenHeight)
-                          GLES20.glClearColor(0.03f, 0.04f, 0.08f, 1f)
                           GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-
-                          val useVideoShader = (activeMode == 3 && hasValidVideo)
-                          if (useVideoShader && videoFrameAvailable.compareAndSet(true, false)) {
-                              try {
-                                  surfaceTexture?.updateTexImage()
-                              } catch (_: Exception) {}
+                          val useVid = (activeMode == 3 && hasValidVideo)
+                          if (useVid && videoFrameAvailable.compareAndSet(true, false)) {
+                              try { surfaceTexture?.updateTexImage() } catch (_: Exception) {}
                           }
-
-                          val prog = if (useVideoShader) progVideo else progStandard
+                          val prog = if (useVid) progVideo else progStandard
                           GLES20.glUseProgram(prog)
+                          val pos = GLES20.glGetAttribLocation(prog, "aPosition")
+                          GLES20.glEnableVertexAttribArray(pos)
+                          GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
 
-                          val posLoc = GLES20.glGetAttribLocation(prog, "aPosition")
-                          GLES20.glEnableVertexAttribArray(posLoc)
-                          GLES20.glVertexAttribPointer(posLoc, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
-
-                          val screenAspect = screenWidth.toFloat() / screenHeight.coerceAtLeast(1).toFloat()
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTime"), currentElapsedSec * speedFactor)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uRawTime"), currentElapsedSec)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uScreenAspect"), screenAspect)
+                          val sAspect = screenWidth.toFloat() / screenHeight.coerceAtLeast(1)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTime"), currentElapsedSec)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uScreenAspect"), sAspect)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uMediaAspect"), mediaAspect)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uZoom"), zoomFactor)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, panY)
-                          GLES20.glUniform2f(
-                              GLES20.glGetUniformLocation(prog, "uTilt"),
-                              smoothTiltX * parallaxStrength,
-                              smoothTiltY * parallaxStrength
-                          )
+                          // 与预览框方向 1:1 同步 (右移 panX>0，下移 panY>0)
+                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, -panY)
+                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTilt"), smoothTiltX * parallaxStrength, smoothTiltY * parallaxStrength)
                           GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTouch"), touchX, touchY)
-                          GLES20.glUniform1f(
-                              GLES20.glGetUniformLocation(prog, "uTouchAge"),
-                              if (rippleEnabled) (currentElapsedSec - lastTouchTimestamp) else 999f
-                          )
-                          GLES20.glUniform1f(
-                              GLES20.glGetUniformLocation(prog, "uParticles"),
-                              if (particlesEnabled) 1f else 0f
-                          )
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTouchAge"), if (rippleEnabled) (currentElapsedSec - lastTouchTimestamp) else 999f)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uParticles"), if (particlesEnabled) 1f else 0f)
 
-                          if (useVideoShader) {
+                          if (useVid) {
                               GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
                               GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, videoOesTexId)
                               GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uVideoTex"), 0)
                           } else {
-                              val effectiveMode = if (activeMode == 2 && hasValidImage) 2 else if (activeMode == 1) 1 else 0
-                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uMode"), effectiveMode)
-                              if (effectiveMode == 2) {
+                              val m = if (activeMode == 2 && hasValidImage) 2 else if (activeMode == 1) 1 else 0
+                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uMode"), m)
+                              if (m == 2) {
                                   GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
                                   GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
                                   GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uImageTex"), 0)
                               }
                           }
-
                           GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-                          GLES20.glDisableVertexAttribArray(posLoc)
                       }
 
                       private fun initEGL(): Boolean {
                           eglDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
-                          if (eglDisplay == EGL14.EGL_NO_DISPLAY) return false
-                          val version = IntArray(2)
-                          if (!EGL14.eglInitialize(eglDisplay, version, 0, version, 1)) return false
-
-                          val attribList = intArrayOf(
-                              EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
-                              EGL14.EGL_RED_SIZE, 8,
-                              EGL14.EGL_GREEN_SIZE, 8,
-                              EGL14.EGL_BLUE_SIZE, 8,
-                              EGL14.EGL_ALPHA_SIZE, 8,
-                              EGL14.EGL_NONE
-                          )
-                          val configs = arrayOfNulls<EGLConfig>(1)
-                          val numConfigs = IntArray(1)
-                          if (!EGL14.eglChooseConfig(eglDisplay, attribList, 0, configs, 0, 1, numConfigs, 0)) {
-                              return false
-                          }
-                          val config = configs[0] ?: return false
-
-                          val ctxAttribs = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE)
-                          eglContext = EGL14.eglCreateContext(eglDisplay, config, EGL14.EGL_NO_CONTEXT, ctxAttribs, 0)
-                          if (eglContext == EGL14.EGL_NO_CONTEXT) return false
-
-                          val surfAttribs = intArrayOf(EGL14.EGL_NONE)
-                          eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, config, holder, surfAttribs, 0)
-                          if (eglSurface == EGL14.EGL_NO_SURFACE) return false
-
+                          val ver = IntArray(2)
+                          if (!EGL14.eglInitialize(eglDisplay, ver, 0, ver, 1)) return false
+                          val cfg = arrayOfNulls<EGLConfig>(1)
+                          val num = IntArray(1)
+                          val att = intArrayOf(EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT, EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8, EGL14.EGL_NONE)
+                          EGL14.eglChooseConfig(eglDisplay, att, 0, cfg, 0, 1, num, 0)
+                          eglContext = EGL14.eglCreateContext(eglDisplay, cfg[0], EGL14.EGL_NO_CONTEXT, intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE), 0)
+                          eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, cfg[0], holder, intArrayOf(EGL14.EGL_NONE), 0)
                           return EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)
                       }
 
-                      private fun initGLResources() {
-                          progStandard = buildProgram(VERTEX_SHADER, FRAGMENT_SHADER_STANDARD)
-                          progVideo = buildProgram(VERTEX_SHADER, FRAGMENT_SHADER_VIDEO)
-
-                          val texIds = IntArray(2)
-                          GLES20.glGenTextures(2, texIds, 0)
-                          imageTexId = texIds[0]
-                          videoOesTexId = texIds[1]
-
-                          GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
-                          GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-                          GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-                          GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
-                          GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-
-                          GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, videoOesTexId)
-                          GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
-                          GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
-                          GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
-                          GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
-                      }
-
-                      private fun buildProgram(vSrc: String, fSrc: String): Int {
-                          val vs = compileShader(GLES20.GL_VERTEX_SHADER, vSrc)
-                          val fs = compileShader(GLES20.GL_FRAGMENT_SHADER, fSrc)
-                          val prog = GLES20.glCreateProgram()
-                          GLES20.glAttachShader(prog, vs)
-                          GLES20.glAttachShader(prog, fs)
-                          GLES20.glLinkProgram(prog)
-                          return prog
-                      }
-
-                      private fun compileShader(type: Int, src: String): Int {
-                          val s = GLES20.glCreateShader(type)
-                          GLES20.glShaderSource(s, src)
-                          GLES20.glCompileShader(s)
-                          return s
-                      }
-
-                      private fun releaseMediaPlayerOnly() {
-                          try {
-                              mediaPlayer?.stop()
-                          } catch (_: Exception) {}
-                          try {
-                              mediaPlayer?.release()
-                          } catch (_: Exception) {}
-                          mediaPlayer = null
-                      }
-
-                      private fun releaseAll() {
-                          releaseMediaPlayerOnly()
-                          try {
-                              videoSurface?.release()
-                              surfaceTexture?.release()
-                          } catch (_: Exception) {}
-                          videoSurface = null
-                          surfaceTexture = null
-
-                          if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
-                              EGL14.eglMakeCurrent(
-                                  eglDisplay,
-                                  EGL14.EGL_NO_SURFACE,
-                                  EGL14.EGL_NO_SURFACE,
-                                  EGL14.EGL_NO_CONTEXT
-                              )
-                              if (eglSurface != EGL14.EGL_NO_SURFACE) {
-                                  EGL14.eglDestroySurface(eglDisplay, eglSurface)
-                              }
-                              if (eglContext != EGL14.EGL_NO_CONTEXT) {
-                                  EGL14.eglDestroyContext(eglDisplay, eglContext)
-                              }
-                              EGL14.eglTerminate(eglDisplay)
-                          }
-                      }
-                  }
-              }
-
-              companion object {
-                  private const val VERTEX_SHADER = """
-                      attribute vec2 aPosition;
-                      varying vec2 vUv;
-                      void main() {
-                          vUv = aPosition * 0.5 + 0.5;
-                          gl_Position = vec4(aPosition, 0.0, 1.0);
-                      }
-                  """
-
-                  private const val FRAGMENT_SHADER_STANDARD = """
-                      precision highp float;
-                      varying vec2 vUv;
-
-                      uniform float uTime;
-                      uniform float uRawTime;
-                      uniform float uScreenAspect;
-                      uniform float uMediaAspect;
-                      uniform float uZoom;
-                      uniform vec2 uPan;
-                      uniform vec2 uTilt;
-                      uniform vec2 uTouch;
-                      uniform float uTouchAge;
-                      uniform float uParticles;
-                      uniform int uMode;
-                      uniform sampler2D uImageTex;
-
-                      float hash21(vec2 p) {
-                          p = fract(p * vec2(234.34, 435.345));
-                          p += dot(p, p + 34.23);
-                          return fract(p.x * p.y);
-                      }
-
-                      vec3 starLayer(vec2 uv, float scale, float seed) {
-                          vec2 gv = fract(uv * scale) - 0.5;
-                          vec2 id = floor(uv * scale) + seed;
-                          float n = hash21(id);
-                          float size = fract(n * 345.32) * 0.08;
-                          float d = length(gv - vec2(n - 0.5, fract(n * 12.7) - 0.5) * 0.6);
-                          float spark = smoothstep(size, 0.0, d);
-                          vec3 col = mix(vec3(0.0, 0.96, 0.83), vec3(0.98, 0.25, 0.65), fract(n * 19.3));
-                          return col * spark * (0.5 + 0.5 * sin(uRawTime * 3.0 + n * 6.28));
-                      }
-
-                      void main() {
-                          vec2 uv = vUv;
-                          vec2 aspectVec = vec2(uScreenAspect, 1.0);
-
-                          vec2 rippleOffset = vec2(0.0);
-                          float rippleGlow = 0.0;
-                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
-                              float dist = length((uv - uTouch) * aspectVec);
-                              float wave = sin(dist * 45.0 - uTouchAge * 14.0);
-                              float env = exp(-dist * 5.5) * exp(-uTouchAge * 1.8);
-                              rippleOffset = normalize((uv - uTouch) + vec2(0.0001)) * wave * env * 0.028;
-                              rippleGlow = smoothstep(0.04, 0.0, abs(dist - uTouchAge * 0.32)) * exp(-uTouchAge * 1.5);
-                          }
-
-                          vec3 finalColor = vec3(0.0);
-
-                          if (uMode == 2) {
-                              vec2 scale = vec2(1.0);
-                              if (uScreenAspect > uMediaAspect) {
-                                  scale.y = uMediaAspect / uScreenAspect;
-                              } else {
-                                  scale.x = uScreenAspect / uMediaAspect;
-                              }
-                              vec2 rawUv = (uv - 0.5 - uPan) * scale * (0.90 / uZoom) + 0.5 + uTilt * 0.055 + rippleOffset;
-                              float inBox = step(0.0, rawUv.x) * step(rawUv.x, 1.0) * step(0.0, rawUv.y) * step(rawUv.y, 1.0);
-                              vec2 imgUv = clamp(rawUv, 0.001, 0.999);
-                              vec2 flippedUv = vec2(imgUv.x, 1.0 - imgUv.y);
-
-                              float chroma = length(uTilt) * 0.004 + rippleGlow * 0.006;
-                              float r = texture2D(uImageTex, flippedUv + vec2(chroma, 0.0)).r;
-                              float g = texture2D(uImageTex, flippedUv).g;
-                              float b = texture2D(uImageTex, flippedUv - vec2(chroma, 0.0)).b;
-                              vec3 sharpCol = vec3(r, g, b);
-                              finalColor = mix(sharpCol * 0.22, sharpCol, inBox);
-                          } else if (uMode == 1) {
-                              vec2 p = ((uv - 0.5 - uPan) * aspectVec / uZoom) + uTilt * 0.14 + rippleOffset;
-                              float r = length(p);
-                              float a = atan(p.y, p.x);
-                              float swirl = a + 1.2 / (r + 0.15) - uTime * 0.9;
-                              float disk = sin(swirl * 5.0) * 0.5 + 0.5;
-                              float ring = smoothstep(0.55, 0.18, r) * smoothstep(0.09, 0.19, r);
-                              float photonRing = 0.015 / (abs(r - 0.15) + 0.008);
-                              vec3 colA = vec3(0.48, 0.17, 0.95);
-                              vec3 colB = vec3(0.0, 0.96, 0.83);
-                              finalColor = mix(colA, colB, disk) * ring * 1.6 + vec3(0.95, 0.85, 1.0) * photonRing;
-                              finalColor *= smoothstep(0.11, 0.14, r);
-                          } else {
-                              vec2 p = ((uv - 0.5 - uPan) * aspectVec * 2.2 / uZoom) + uTilt * 0.25 + rippleOffset * 2.0;
-                              vec2 z = p;
-                              float acc = 0.0;
-                              for (int i = 0; i < 5; i++) {
-                                  float fi = float(i) + 1.0;
-                                  z += vec2(
-                                      sin(z.y * fi * 1.6 + uTime * 1.1),
-                                      cos(z.x * fi * 1.6 - uTime * 0.9)
-                                  ) / fi;
-                                  acc += 0.18 / (length(z - p * 0.35) + 0.12);
-                              }
-                              float coreDist = length(p);
-                              float corePulse = 0.08 / (abs(coreDist - 0.42 - 0.06 * sin(uTime * 3.0)) + 0.04);
-                              vec3 plasmaCol = vec3(
-                                  0.5 + 0.5 * sin(acc * 2.2 + uTime),
-                                  0.5 + 0.5 * sin(acc * 2.2 + 2.1),
-                                  0.5 + 0.5 * sin(acc * 2.2 + 4.2)
-                              );
-                              finalColor = plasmaCol * acc * 0.48 + vec3(0.0, 0.98, 0.85) * corePulse;
-                          }
-
-                          if (uParticles > 0.5) {
-                              vec2 pUv1 = uv * aspectVec + uTilt * 0.12 + vec2(0.0, uRawTime * 0.02);
-                              vec2 pUv2 = uv * aspectVec + uTilt * 0.24 + vec2(uRawTime * 0.015, -uRawTime * 0.03);
-                              finalColor += starLayer(pUv1, 7.0, 1.3) * 0.7;
-                              finalColor += starLayer(pUv2, 12.0, 5.7) * 0.9;
-                          }
-
-                          finalColor += vec3(0.0, 0.96, 0.83) * rippleGlow * 0.95;
-                          gl_FragColor = vec4(finalColor, 1.0);
-                      }
-                  """
-
-                  private const val FRAGMENT_SHADER_VIDEO = """
-                      #extension GL_OES_EGL_image_external : require
-                      precision highp float;
-                      varying vec2 vUv;
-
-                      uniform float uTime;
-                      uniform float uRawTime;
-                      uniform float uScreenAspect;
-                      uniform float uMediaAspect;
-                      uniform float uZoom;
-                      uniform vec2 uPan;
-                      uniform vec2 uTilt;
-                      uniform vec2 uTouch;
-                      uniform float uTouchAge;
-                      uniform float uParticles;
-                      uniform samplerExternalOES uVideoTex;
-
-                      float hash21(vec2 p) {
-                          p = fract(p * vec2(234.34, 435.345));
-                          p += dot(p, p + 34.23);
-                          return fract(p.x * p.y);
-                      }
-
-                      vec3 starLayer(vec2 uv, float scale, float seed) {
-                          vec2 gv = fract(uv * scale) - 0.5;
-                          vec2 id = floor(uv * scale) + seed;
-                          float n = hash21(id);
-                          float size = fract(n * 345.32) * 0.07;
-                          float d = length(gv - vec2(n - 0.5, fract(n * 12.7) - 0.5) * 0.6);
-                          float spark = smoothstep(size, 0.0, d);
-                          vec3 col = mix(vec3(0.0, 0.96, 0.83), vec3(0.98, 0.85, 0.25), fract(n * 19.3));
-                          return col * spark * (0.5 + 0.5 * sin(uRawTime * 3.0 + n * 6.28));
-                      }
-
-                      void main() {
-                          vec2 uv = vUv;
-                          vec2 aspectVec = vec2(uScreenAspect, 1.0);
-
-                          vec2 rippleOffset = vec2(0.0);
-                          float rippleGlow = 0.0;
-                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
-                              float dist = length((uv - uTouch) * aspectVec);
-                              float wave = sin(dist * 45.0 - uTouchAge * 14.0);
-                              float env = exp(-dist * 5.5) * exp(-uTouchAge * 1.8);
-                              rippleOffset = normalize((uv - uTouch) + vec2(0.0001)) * wave * env * 0.025;
-                              rippleGlow = smoothstep(0.04, 0.0, abs(dist - uTouchAge * 0.32)) * exp(-uTouchAge * 1.5);
-                          }
-
-                          vec2 scale = vec2(1.0);
-                          if (uScreenAspect > uMediaAspect) {
-                              scale.y = uMediaAspect / uScreenAspect;
-                          } else {
-                              scale.x = uScreenAspect / uMediaAspect;
-                          }
-
-                          vec2 rawUv = (uv - 0.5 - uPan) * scale * (0.90 / uZoom) + 0.5 + uTilt * 0.045 + rippleOffset;
-                          float inBox = step(0.0, rawUv.x) * step(rawUv.x, 1.0) * step(0.0, rawUv.y) * step(rawUv.y, 1.0);
-                          vec2 vidUv = clamp(rawUv, 0.001, 0.999);
-                          vec2 flippedUv = vec2(vidUv.x, 1.0 - vidUv.y);
-
-                          vec3 vidCol = texture2D(uVideoTex, flippedUv).rgb;
-                          vec3 finalColor = mix(vidCol * 0.22, vidCol, inBox);
-
-                          if (uParticles > 0.5) {
-                              vec2 pUv = uv * aspectVec + uTilt * 0.18 + vec2(0.0, uRawTime * 0.02);
-                              finalColor += starLayer(pUv, 9.0, 3.1) * 0.65;
-                          }
-
-                          finalColor += vec3(0.0, 0.96, 0.83) * rippleGlow * 0.85;
-                          gl_FragColor = vec4(finalColor, 1.0);
-                      }
-                  """
-              }
-          }
-          EOF
-
-      - name: Compile 3.0 Debug APK via Gradle
-        run: gradle assembleDebug --no-daemon
-
-      - name: Upload Compiled 3.0 APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: NuclearWallpaper-3.0-IconStudio-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+                      private fun initGL() {
+                          progStandard = linkProg(VS, FS_STD)
+                          progVideo = linkProg(VS, FS_VID)
+                          val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
+                          imageTexId = ids[0]; videoOesTexId = ids[1]
+                          for (t in listOf(GLES20.GL_TEXTURE_2D to imageTexId, GLES11Ext.GL_TEXTURE_EXTERNAL_OES to videoO
