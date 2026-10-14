@@ -1158,4 +1158,123 @@ jobs:
                           progVideo = linkProg(VS, FS_VID)
                           val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
                           imageTexId = ids[0]; videoOesTexId = ids[1]
-                          for (t in listOf(GLES20.GL_TEXTURE_2D to imageTexId, GLES11Ext.GL_TEXTURE_EXTERNAL_OES to videoO
+                          for (t in listOf(GLES20.GL_TEXTURE_2D to imageTexId, GLES11Ext.GL_TEXTURE_EXTERNAL_OES to videoOesTexId)) {
+                              GLES20.glBindTexture(t.first, t.second)
+                              GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+                              GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+                              GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+                              GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+                          }
+                      }
+
+                      private fun linkProg(vs: String, fs: String): Int {
+                          val p = GLES20.glCreateProgram()
+                          val v = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER).also { GLES20.glShaderSource(it, vs); GLES20.glCompileShader(it) }
+                          val f = GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER).also { GLES20.glShaderSource(it, fs); GLES20.glCompileShader(it) }
+                          GLES20.glAttachShader(p, v); GLES20.glAttachShader(p, f); GLES20.glLinkProgram(p)
+                          return p
+                      }
+
+                      private fun releaseAll() {
+                          try { mediaPlayer?.release(); videoSurface?.release(); surfaceTexture?.release() } catch (_: Exception) {}
+                          if (eglDisplay != EGL14.EGL_NO_DISPLAY) {
+                              EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+                              EGL14.eglDestroySurface(eglDisplay, eglSurface)
+                              EGL14.eglDestroyContext(eglDisplay, eglContext)
+                              EGL14.eglTerminate(eglDisplay)
+                          }
+                      }
+                  }
+              }
+
+              companion object {
+                  private const val VS = """
+                      attribute vec2 aPosition;
+                      varying vec2 vUv;
+                      void main() { vUv = aPosition * 0.5 + 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
+                  """
+                  private const val FS_STD = """
+                      precision highp float;
+                      varying vec2 vUv;
+                      uniform float uTime, uScreenAspect, uMediaAspect, uZoom, uTouchAge, uParticles;
+                      uniform vec2 uPan, uTilt, uTouch;
+                      uniform int uMode;
+                      uniform sampler2D uImageTex;
+                      float hash21(vec2 p){ p=fract(p*vec2(234.34,435.345)); p+=dot(p,p+34.23); return fract(p.x*p.y); }
+                      vec3 stars(vec2 uv, float sc){
+                          vec2 gv=fract(uv*sc)-0.5, id=floor(uv*sc);
+                          float n=hash21(id), d=length(gv-vec2(n-0.5,fract(n*12.7)-0.5)*0.6);
+                          return mix(vec3(0.0,0.96,0.83),vec3(0.98,0.25,0.65),fract(n*19.3))*smoothstep(0.07,0.0,d);
+                      }
+                      void main() {
+                          vec2 asp = vec2(uScreenAspect, 1.0);
+                          vec2 rip = vec2(0.0); float glow = 0.0;
+                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
+                              float d = length((vUv - uTouch) * asp);
+                              rip = normalize(vUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.025;
+                              glow = smoothstep(0.04, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.5);
+                          }
+                          vec3 col = vec3(0.0);
+                          if (uMode == 2) {
+                              vec2 sc = uScreenAspect > uMediaAspect ? vec2(1.0, uMediaAspect/uScreenAspect) : vec2(uScreenAspect/uMediaAspect, 1.0);
+                              vec2 raw = (vUv - 0.5 - uPan) * sc * (0.90 / uZoom) + 0.5 + uTilt * 0.05 + rip;
+                              float inBox = step(0.0, raw.x)*step(raw.x, 1.0)*step(0.0, raw.y)*step(raw.y, 1.0);
+                              vec2 uv = vec2(clamp(raw.x, 0.001, 0.999), 1.0 - clamp(raw.y, 0.001, 0.999));
+                              vec3 c = texture2D(uImageTex, uv).rgb;
+                              col = mix(c * 0.2, c, inBox);
+                          } else if (uMode == 1) {
+                              vec2 p = (vUv - 0.5 - uPan) * asp / uZoom + uTilt * 0.14 + rip;
+                              float r = length(p), a = atan(p.y, p.x);
+                              float ring = smoothstep(0.55, 0.18, r) * smoothstep(0.09, 0.19, r);
+                              col = mix(vec3(0.48,0.17,0.95), vec3(0.0,0.96,0.83), sin(a + 1.2/(r+0.15) - uTime)*0.5+0.5) * ring * 1.6;
+                              col += vec3(0.95,0.85,1.0) * (0.015 / (abs(r - 0.15) + 0.008));
+                              col *= smoothstep(0.11, 0.14, r);
+                          } else {
+                              vec2 p = (vUv - 0.5 - uPan) * asp * 2.2 / uZoom + uTilt * 0.25 + rip * 2.0, z = p;
+                              float acc = 0.0;
+                              for (int i = 0; i < 5; i++) {
+                                  float fi = float(i) + 1.0;
+                                  z += vec2(sin(z.y*fi*1.6 + uTime), cos(z.x*fi*1.6 - uTime)) / fi;
+                                  acc += 0.18 / (length(z - p*0.35) + 0.12);
+                              }
+                              col = (0.5 + 0.5*sin(vec3(0.0,2.1,4.2) + acc*2.2 + uTime)) * acc * 0.48;
+                          }
+                          if (uParticles > 0.5) col += stars(vUv * asp + uTilt * 0.15 + vec2(0.0, uTime*0.02), 8.0) * 0.8;
+                          gl_FragColor = vec4(col + vec3(0.0, 0.96, 0.83) * glow, 1.0);
+                      }
+                  """
+                  private const val FS_VID = """
+                      #extension GL_OES_EGL_image_external : require
+                      precision highp float;
+                      varying vec2 vUv;
+                      uniform float uTime, uScreenAspect, uMediaAspect, uZoom, uTouchAge, uParticles;
+                      uniform vec2 uPan, uTilt, uTouch;
+                      uniform samplerExternalOES uVideoTex;
+                      void main() {
+                          vec2 asp = vec2(uScreenAspect, 1.0);
+                          vec2 rip = vec2(0.0); float glow = 0.0;
+                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
+                              float d = length((vUv - uTouch) * asp);
+                              rip = normalize(vUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.025;
+                              glow = smoothstep(0.04, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.5);
+                          }
+                          vec2 sc = uScreenAspect > uMediaAspect ? vec2(1.0, uMediaAspect/uScreenAspect) : vec2(uScreenAspect/uMediaAspect, 1.0);
+                          vec2 raw = (vUv - 0.5 - uPan) * sc * (0.90 / uZoom) + 0.5 + uTilt * 0.045 + rip;
+                          float inBox = step(0.0, raw.x)*step(raw.x, 1.0)*step(0.0, raw.y)*step(raw.y, 1.0);
+                          vec2 uv = vec2(clamp(raw.x, 0.001, 0.999), 1.0 - clamp(raw.y, 0.001, 0.999));
+                          vec3 c = texture2D(uVideoTex, uv).rgb;
+                          gl_FragColor = vec4(mix(c * 0.2, c, inBox) + vec3(0.0, 0.96, 0.83) * glow, 1.0);
+                      }
+                  """
+              }
+          }
+          EOF
+
+      - name: Compile 4.0 APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload 4.0 APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NuclearWallpaper-4.0-LivePreview-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
