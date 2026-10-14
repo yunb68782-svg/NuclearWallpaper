@@ -1,4 +1,4 @@
-name: Build Nuclear Wallpaper & OnePlus Icon Pack 2.0
+name: Build Nuclear Wallpaper & Custom Icon Studio 3.0
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Generate 2.0 Project + HD Icon Pack via Python
+      - name: Generate 3.0 Project & OnePlus Icon Pack Studio
         run: |
           pip install pillow
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
@@ -37,6 +37,7 @@ jobs:
           from PIL import Image, ImageDraw, ImageFilter
 
           OUT = "app/src/main/res/drawable-nodpi"
+          S = 512
 
           def rounded_mask(size, radius):
               mask = Image.new("L", (size, size), 0)
@@ -45,7 +46,6 @@ jobs:
               return mask
 
           def make_base_squircle(bg_top, bg_bot, border_col, glow_col):
-              S = 512
               img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               grad = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               gd = ImageDraw.Draw(grad)
@@ -54,37 +54,38 @@ jobs:
                   r = int(bg_top[0] * (1 - t) + bg_bot[0] * t)
                   g = int(bg_top[1] * (1 - t) + bg_bot[1] * t)
                   b = int(bg_top[2] * (1 - t) + bg_bot[2] * t)
-                  gd.line([(0, y), (S, y)], fill=(r, g, b, 245))
+                  gd.line([(0, y), (S, y)], fill=(r, g, b, 248))
               mask = rounded_mask(S, 118)
               img.paste(grad, (0, 0), mask)
 
-              # 内部霓虹柔光
               glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               gdraw = ImageDraw.Draw(glow)
-              gdraw.ellipse([96, 96, S - 96, S - 96], fill=(glow_col[0], glow_col[1], glow_col[2], 75))
+              gdraw.ellipse([96, 96, S - 96, S - 96], fill=(glow_col[0], glow_col[1], glow_col[2], 80))
               glow = glow.filter(ImageFilter.GaussianBlur(42))
               img = Image.alpha_composite(img, glow)
 
-              # 外框高光边
               bdraw = ImageDraw.Draw(img)
-              bdraw.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border_col, width=7)
+              bdraw.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border_col, width=8)
               return img
 
-          # 1. 生成全局图标包底板 (icon_back.png)
-          back = make_base_squircle((16, 23, 41), (8, 11, 22), (0, 245, 212, 180), (123, 44, 191))
+          # 1. 全局图标包底板、高光罩、裁切蒙版
+          back = make_base_squircle((16, 23, 41), (8, 11, 22), (0, 245, 212, 190), (123, 44, 191))
           back.save(f"{OUT}/icon_back.png")
 
-          # 2. 生成全局图标包流光玻璃罩 (icon_upon.png)
-          S = 512
           upon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
           ud = ImageDraw.Draw(upon)
-          ud.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 220), width=6)
-          ud.rounded_rectangle([18, 18, S - 18, S - 18], radius=110, outline=(155, 93, 229, 110), width=3)
+          ud.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 230), width=7)
+          ud.rounded_rectangle([18, 18, S - 18, S - 18], radius=110, outline=(155, 93, 229, 120), width=3)
           upon.save(f"{OUT}/icon_upon.png")
 
-          # 3. 生成定制图形图标函数
+          mask_img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          md = ImageDraw.Draw(mask_img)
+          md.rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=(255, 255, 255, 255))
+          mask_img.save(f"{OUT}/icon_mask.png")
+
+          # 2. 生成 8 款高定赛博图标
           def make_custom_icon(filename, accent1, accent2, mode):
-              base = make_base_squircle((18, 25, 46), (7, 10, 20), accent1 + (230,), accent2)
+              base = make_base_squircle((18, 25, 46), (7, 10, 20), accent1 + (235,), accent2)
               layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               d = ImageDraw.Draw(layer)
               cx, cy = S // 2, S // 2
@@ -99,28 +100,36 @@ jobs:
                           xr = cx + x0 * math.cos(rad) - y0 * math.sin(rad)
                           yr = cy + x0 * math.sin(rad) + y0 * math.cos(rad)
                           pts.append((xr, yr))
-                      d.polygon(pts, outline=accent1 + (235,), width=9)
-                  d.ellipse([cx - 36, cy - 36, cx + 36, cy + 36], fill=accent2 + (255,), outline=(255, 255, 255, 240), width=5)
+                      d.polygon(pts, outline=accent1 + (240,), width=10)
+                  d.ellipse([cx - 38, cy - 38, cx + 38, cy + 38], fill=accent2 + (255,), outline=(255, 255, 255, 245), width=5)
               elif mode == "blackhole":
-                  for r, col, w in [(145, accent2, 10), (112, accent1, 14), (82, (255, 230, 120), 8)]:
-                      d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col + (230,), width=w)
+                  for r, col, w in [(148, accent2, 11), (112, accent1, 15), (82, (255, 230, 120), 9)]:
+                      d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col + (235,), width=w)
                   d.ellipse([cx - 56, cy - 56, cx + 56, cy + 56], fill=(5, 7, 15, 255))
               elif mode == "chat":
-                  d.rounded_rectangle([125, 145, 387, 345], radius=65, fill=accent1 + (45,), outline=accent1 + (240,), width=12)
-                  d.ellipse([185, 225, 215, 255], fill=(255, 255, 255, 240))
-                  d.ellipse([245, 225, 275, 255], fill=accent2 + (255,))
-                  d.ellipse([305, 225, 335, 255], fill=(255, 255, 255, 240))
+                  d.rounded_rectangle([122, 142, 390, 348], radius=65, fill=accent1 + (50,), outline=accent1 + (245,), width=12)
+                  d.ellipse([185, 228, 215, 258], fill=(255, 255, 255, 245))
+                  d.ellipse([245, 228, 275, 258], fill=accent2 + (255,))
+                  d.ellipse([305, 228, 335, 258], fill=(255, 255, 255, 245))
               elif mode == "game":
-                  d.polygon([(cx, 120), (385, cy), (cx, 392), (127, cy)], fill=accent2 + (50,), outline=accent1 + (245,), width=12)
-                  d.ellipse([cx - 42, cy - 42, cx + 42, cy + 42], fill=accent1 + (240,))
+                  d.polygon([(cx, 118), (388, cy), (cx, 394), (124, cy)], fill=accent2 + (55,), outline=accent1 + (245,), width=12)
+                  d.ellipse([cx - 44, cy - 44, cx + 44, cy + 44], fill=accent1 + (245,))
               elif mode == "video":
-                  d.rounded_rectangle([120, 140, 392, 372], radius=52, fill=accent2 + (45,), outline=accent1 + (240,), width=11)
-                  d.polygon([(215, 195), (215, 317), (325, 256)], fill=(255, 255, 255, 245))
+                  d.rounded_rectangle([118, 138, 394, 374], radius=54, fill=accent2 + (50,), outline=accent1 + (245,), width=12)
+                  d.polygon([(215, 192), (215, 320), (328, 256)], fill=(255, 255, 255, 248))
               elif mode == "code":
-                  d.arc([130, 130, 382, 382], start=0, end=360, fill=accent1 + (240,), width=12)
-                  d.line([(195, 210), (155, 256), (195, 302)], fill=(255, 255, 255, 245), width=12)
-                  d.line([(317, 210), (357, 256), (317, 302)], fill=(255, 255, 255, 245), width=12)
+                  d.arc([128, 128, 384, 384], start=0, end=360, fill=accent1 + (245,), width=12)
+                  d.line([(195, 210), (155, 256), (195, 302)], fill=(255, 255, 255, 248), width=12)
+                  d.line([(317, 210), (357, 256), (317, 302)], fill=(255, 255, 255, 248), width=12)
                   d.line([(275, 195), (237, 317)], fill=accent2 + (255,), width=10)
+              elif mode == "camera":
+                  d.rounded_rectangle([118, 152, 394, 368], radius=48, fill=accent1 + (40,), outline=accent1 + (245,), width=12)
+                  d.ellipse([cx - 64, cy - 56, cx + 64, cy + 72], outline=accent2 + (250,), width=12)
+                  d.ellipse([cx - 26, cy - 18, cx + 26, cy + 34], fill=(255, 255, 255, 240))
+              elif mode == "music":
+                  d.ellipse([cx - 135, cy - 135, cx + 135, cy + 135], outline=accent1 + (240,), width=12)
+                  d.ellipse([cx - 85, cy - 85, cx + 85, cy + 85], outline=accent2 + (220,), width=8)
+                  d.ellipse([cx - 28, cy - 28, cx + 28, cy + 28], fill=(255, 255, 255, 245))
 
               glow_layer = layer.filter(ImageFilter.GaussianBlur(10))
               out = Image.alpha_composite(base, glow_layer)
@@ -135,6 +144,8 @@ jobs:
           make_custom_icon("ic_cyber_game", (247, 37, 133), (254, 228, 64), "game")
           make_custom_icon("ic_cyber_video", (0, 187, 249), (247, 37, 133), "video")
           make_custom_icon("ic_cyber_github", (155, 93, 229), (0, 245, 212), "code")
+          make_custom_icon("ic_cyber_camera", (254, 228, 64), (247, 37, 133), "camera")
+          make_custom_icon("ic_cyber_music", (0, 245, 212), (155, 93, 229), "music")
           PYEOF
 
           cat << 'EOF' > settings.gradle.kts
@@ -183,8 +194,8 @@ jobs:
                   applicationId = "com.i7ruhua.nuclearwallpaper"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 2
-                  versionName = "2.0-ARGON-ULTIMATE"
+                  versionCode = 3
+                  versionName = "3.0-ARGON-ICON-STUDIO"
               }
 
               buildTypes {
@@ -211,7 +222,8 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">核芯壁纸引擎</string>
-              <string name="wallpaper_desc">4 Argon 2.0 · 支持自由缩放平移、185Hz高刷与一加全息图标包</string>
+              <string name="icon_studio_name">核芯自定义图标包</string>
+              <string name="wallpaper_desc">4 Argon 3.0 · 支持壁纸自由缩放平移、185Hz高刷与相册自定义图标包</string>
           </resources>
           EOF
 
@@ -223,13 +235,13 @@ jobs:
               android:thumbnail="@drawable/ic_launcher" />
           EOF
 
-          # ColorOS / 主流启动器通用图标包配置 (全局自动套底板+高光框+定制图标)
           cat << 'EOF' > app/src/main/res/xml/appfilter.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <iconback img1="icon_back" />
+              <iconmask img1="icon_mask" />
               <iconupon img1="icon_upon" />
-              <scale factor="0.76" />
+              <scale factor="0.78" />
 
               <item component="ComponentInfo{com.i7ruhua.nuclearwallpaper/com.i7ruhua.nuclearwallpaper.MainActivity}" drawable="ic_launcher" />
               <item component="ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}" drawable="ic_cyber_wechat" />
@@ -237,6 +249,7 @@ jobs:
               <item component="ComponentInfo{com.kuaishou.nebula/com.yxcorp.gifshow.HomeActivity}" drawable="ic_cyber_video" />
               <item component="ComponentInfo{com.tencent.tmgp.sgame/com.tencent.tmgp.sgame.SGameActivity}" drawable="ic_cyber_game" />
               <item component="ComponentInfo{com.github.android/com.github.android.activities.MainActivity}" drawable="ic_cyber_github" />
+              <item component="ComponentInfo{com.tencent.qqmusic/com.tencent.qqmusic.activity.AppStarterActivity}" drawable="ic_cyber_music" />
           </resources>
           EOF
           cp app/src/main/res/xml/appfilter.xml app/src/main/assets/appfilter.xml
@@ -245,7 +258,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <version>1</version>
-              <category title="核芯专属赛博图标" />
+              <category title="核芯高定赛博图标" />
               <item drawable="ic_launcher" />
               <item drawable="ic_nuclear_cyan" />
               <item drawable="ic_nuclear_purple" />
@@ -254,6 +267,8 @@ jobs:
               <item drawable="ic_cyber_game" />
               <item drawable="ic_cyber_video" />
               <item drawable="ic_cyber_github" />
+              <item drawable="ic_cyber_camera" />
+              <item drawable="ic_cyber_music" />
               <item drawable="icon_back" />
           </resources>
           EOF
@@ -271,6 +286,8 @@ jobs:
                   <item>ic_cyber_game</item>
                   <item>ic_cyber_video</item>
                   <item>ic_cyber_github</item>
+                  <item>ic_cyber_camera</item>
+                  <item>ic_cyber_music</item>
                   <item>icon_back</item>
               </string-array>
           </resources>
@@ -303,9 +320,19 @@ jobs:
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-                      <!-- 一加 ColorOS / OPPO / 主流桌面图标包识别协议 -->
+                  </activity>
+
+                  <!-- 专门响应一加 ColorOS 桌面图标包识别 & 单个图标自定义选图回调 -->
+                  <activity
+                      android:name=".IconPickerActivity"
+                      android:exported="true"
+                      android:label="@string/icon_studio_name">
                       <intent-filter>
                           <action android:name="org.adw.launcher.THEMES" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="org.adw.launcher.icons.ACTION_PICK_ICON" />
                           <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
                       <intent-filter>
@@ -321,7 +348,7 @@ jobs:
                           <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
                       <intent-filter>
-                          <action android:name="org.adw.launcher.icons.ACTION_PICK_ICON" />
+                          <action android:name="com.gau.go.launcherex.theme" />
                           <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
                   </activity>
@@ -341,6 +368,341 @@ jobs:
                   </service>
               </application>
           </manifest>
+          EOF
+
+          cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/IconPickerActivity.kt
+          package com.i7ruhua.nuclearwallpaper
+
+          import android.app.Activity
+          import android.content.Intent
+          import android.graphics.Bitmap
+          import android.graphics.BitmapFactory
+          import android.graphics.BitmapShader
+          import android.graphics.Canvas
+          import android.graphics.Color
+          import android.graphics.Matrix
+          import android.graphics.Paint
+          import android.graphics.RectF
+          import android.graphics.Shader
+          import android.graphics.Typeface
+          import android.graphics.drawable.GradientDrawable
+          import android.net.Uri
+          import android.os.Bundle
+          import android.view.Gravity
+          import android.widget.Button
+          import android.widget.GridLayout
+          import android.widget.ImageView
+          import android.widget.LinearLayout
+          import android.widget.ScrollView
+          import android.widget.TextView
+          import android.widget.Toast
+          import androidx.activity.result.contract.ActivityResultContracts
+          import androidx.appcompat.app.AppCompatActivity
+
+          class IconPickerActivity : AppCompatActivity() {
+
+              // 0: 一加原生圆角, 1: 赛博霓虹边框, 2: 纯圆头像, 3: 无边框原图
+              private var selectedShapeStyle = 1
+              private val styleButtons = mutableListOf<Button>()
+
+              private val pickGalleryIconLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                  if (uri != null) {
+                      val bmp = createStyledIconFromUri(uri, selectedShapeStyle)
+                      if (bmp != null) {
+                          returnIconToLauncher(bmp, 0)
+                      } else {
+                          Toast.makeText(this, "图片解析失败，请换一张试试", Toast.LENGTH_SHORT).show()
+                      }
+                  }
+              }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  window.statusBarColor = Color.parseColor("#0B0F19")
+                  window.navigationBarColor = Color.parseColor("#0B0F19")
+
+                  val scroll = ScrollView(this).apply {
+                      setBackgroundColor(Color.parseColor("#0B0F19"))
+                      isFillViewport = true
+                  }
+
+                  val root = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(dp(20), dp(28), dp(20), dp(40))
+                  }
+
+                  val title = TextView(this).apply {
+                      text = "🎨 核芯自定义图标工坊"
+                      textSize = 22f
+                      typeface = Typeface.DEFAULT_BOLD
+                      setTextColor(Color.parseColor("#00F5D4"))
+                  }
+                  val sub = TextView(this).apply {
+                      text = "支持从手机相册任选图片秒变桌面图标，或直接选用下方高定赛博图标"
+                      textSize = 13f
+                      setTextColor(Color.parseColor("#8E9AAF"))
+                      setPadding(0, dp(6), 0, dp(18))
+                  }
+                  root.addView(title)
+                  root.addView(sub)
+
+                  // 卡片 1：相册任意图片转图标
+                  val customCard = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      background = roundedBg("#151C2C", dp(14))
+                      setPadding(dp(16), dp(16), dp(16), dp(16))
+                  }
+
+                  val stepTitle = TextView(this).apply {
+                      text = "📸 第一步：选择相册图片裁切模具"
+                      textSize = 15f
+                      typeface = Typeface.DEFAULT_BOLD
+                      setTextColor(Color.parseColor("#00BBF9"))
+                      setPadding(0, 0, 0, dp(10))
+                  }
+                  customCard.addView(stepTitle)
+
+                  val styles = listOf(
+                      0 to "一加原生圆角",
+                      1 to "赛博霓虹框",
+                      2 to "纯圆图标",
+                      3 to "无裁切原图"
+                  )
+                  val styleGrid = GridLayout(this).apply {
+                      columnCount = 2
+                  }
+                  for ((sId, sName) in styles) {
+                      val btn = Button(this).apply {
+                          text = sName
+                          textSize = 13f
+                          isAllCaps = false
+                          val lp = GridLayout.LayoutParams().apply {
+                              width = 0
+                              height = dp(42)
+                              columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                              setMargins(dp(4), dp(4), dp(4), dp(4))
+                          }
+                          layoutParams = lp
+                          setOnClickListener {
+                              selectedShapeStyle = sId
+                              updateStyleButtonUI()
+                          }
+                      }
+                      styleButtons.add(btn)
+                      styleGrid.addView(btn)
+                  }
+                  updateStyleButtonUI()
+                  customCard.addView(styleGrid)
+
+                  val pickPhotoBtn = Button(this).apply {
+                      text = "🖼️ 从手机相册任选一张图片生成图标"
+                      textSize = 15.5f
+                      typeface = Typeface.DEFAULT_BOLD
+                      setTextColor(Color.parseColor("#0B0F19"))
+                      background = roundedBg("#00F5D4", dp(12))
+                      val lp = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      ).apply { topMargin = dp(14) }
+                      layoutParams = lp
+                      setPadding(dp(14), dp(12), dp(14), dp(12))
+                      setOnClickListener {
+                          pickGalleryIconLauncher.launch("image/*")
+                      }
+                  }
+                  customCard.addView(pickPhotoBtn)
+                  root.addView(customCard)
+
+                  // 卡片 2：内置高定赛博图标库
+                  val packCard = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      background = roundedBg("#151C2C", dp(14))
+                      setPadding(dp(16), dp(16), dp(16), dp(16))
+                      val lp = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          LinearLayout.LayoutParams.WRAP_CONTENT
+                      ).apply { topMargin = dp(16) }
+                      layoutParams = lp
+                  }
+
+                  val packHeader = TextView(this).apply {
+                      text = "⚡ 或直接点击下方内置高定图标（点击即换）："
+                      textSize = 15f
+                      typeface = Typeface.DEFAULT_BOLD
+                      setTextColor(Color.parseColor("#FEE440"))
+                      setPadding(0, 0, 0, dp(12))
+                  }
+                  packCard.addView(packHeader)
+
+                  val icons = listOf(
+                      R.drawable.ic_launcher to "聚变核心",
+                      R.drawable.ic_nuclear_cyan to "量子青核",
+                      R.drawable.ic_nuclear_purple to "暗紫反应堆",
+                      R.drawable.ic_blackhole to "引力黑洞",
+                      R.drawable.ic_cyber_wechat to "赛博社交",
+                      R.drawable.ic_cyber_game to "高刷电竞",
+                      R.drawable.ic_cyber_video to "流光影音",
+                      R.drawable.ic_cyber_github to "极客代码",
+                      R.drawable.ic_cyber_camera to "全息影像",
+                      R.drawable.ic_cyber_music to "声波律动",
+                      R.drawable.icon_back to "純粹暗夜框"
+                  )
+
+                  val iconGrid = GridLayout(this).apply {
+                      columnCount = 3
+                  }
+
+                  for ((resId, label) in icons) {
+                      val cell = LinearLayout(this).apply {
+                          orientation = LinearLayout.VERTICAL
+                          gravity = Gravity.CENTER
+                          background = roundedBg("#1E2638", dp(12))
+                          setPadding(dp(8), dp(12), dp(8), dp(10))
+                          val lp = GridLayout.LayoutParams().apply {
+                              width = 0
+                              height = GridLayout.LayoutParams.WRAP_CONTENT
+                              columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                              setMargins(dp(5), dp(5), dp(5), dp(5))
+                          }
+                          layoutParams = lp
+                          setOnClickListener {
+                              val raw = BitmapFactory.decodeResource(resources, resId)
+                              val scaled = Bitmap.createScaledBitmap(raw, 240, 240, true)
+                              returnIconToLauncher(scaled, resId)
+                          }
+                      }
+
+                      val iv = ImageView(this).apply {
+                          setImageResource(resId)
+                          layoutParams = LinearLayout.LayoutParams(dp(58), dp(58))
+                      }
+                      val tv = TextView(this).apply {
+                          text = label
+                          textSize = 12f
+                          setTextColor(Color.WHITE)
+                          gravity = Gravity.CENTER
+                          setPadding(0, dp(6), 0, 0)
+                      }
+                      cell.addView(iv)
+                      cell.addView(tv)
+                      iconGrid.addView(cell)
+                  }
+
+                  packCard.addView(iconGrid)
+                  root.addView(packCard)
+
+                  scroll.addView(root)
+                  setContentView(scroll)
+              }
+
+              private fun updateStyleButtonUI() {
+                  styleButtons.forEachIndexed { idx, btn ->
+                      if (idx == selectedShapeStyle) {
+                          btn.background = roundedBg("#7B2CBF", dp(10))
+                          btn.setTextColor(Color.parseColor("#00F5D4"))
+                      } else {
+                          btn.background = roundedBg("#222D42", dp(10))
+                          btn.setTextColor(Color.parseColor("#D9E2EC"))
+                      }
+                  }
+              }
+
+              private fun createStyledIconFromUri(uri: Uri, style: Int): Bitmap? {
+                  return try {
+                      val src = contentResolver.openInputStream(uri)?.use {
+                          BitmapFactory.decodeStream(it)
+                      } ?: return null
+
+                      val size = 240
+                      val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                      val canvas = Canvas(out)
+
+                      // Center-crop 矩阵计算
+                      val scale: Float
+                      var dx = 0f
+                      var dy = 0f
+                      if (src.width * size > size * src.height) {
+                          scale = size.toFloat() / src.height.toFloat()
+                          dx = (size - src.width * scale) * 0.5f
+                      } else {
+                          scale = size.toFloat() / src.width.toFloat()
+                          dy = (size - src.height * scale) * 0.5f
+                      }
+                      val shaderMatrix = Matrix().apply {
+                          setScale(scale, scale)
+                          postTranslate(dx, dy)
+                      }
+                      val imgPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                          shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                              setLocalMatrix(shaderMatrix)
+                          }
+                      }
+
+                      val pad = 6f
+                      val rect = RectF(pad, pad, size - pad, size - pad)
+
+                      when (style) {
+                          0 -> {
+                              // 一加原生圆角
+                              canvas.drawRoundRect(rect, 54f, 54f, imgPaint)
+                          }
+                          1 -> {
+                              // 赛博霓虹发光外框 + 一加圆角
+                              canvas.drawRoundRect(rect, 54f, 54f, imgPaint)
+                              val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                  this.style = Paint.Style.STROKE
+                                  strokeWidth = 6f
+                                  color = Color.parseColor("#00F5D4")
+                              }
+                              canvas.drawRoundRect(rect, 54f, 54f, borderPaint)
+                          }
+                          2 -> {
+                              // 纯圆头像图标
+                              canvas.drawOval(rect, imgPaint)
+                              val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                  this.style = Paint.Style.STROKE
+                                  strokeWidth = 4f
+                                  color = Color.parseColor("#9B5DE5")
+                              }
+                              canvas.drawOval(rect, borderPaint)
+                          }
+                          else -> {
+                              // 无裁切铺满
+                              canvas.drawRect(0f, 0f, size.toFloat(), size.toFloat(), imgPaint)
+                          }
+                      }
+                      src.recycle()
+                      out
+                  } catch (_: Exception) {
+                      null
+                  }
+              }
+
+              private fun returnIconToLauncher(bitmap: Bitmap, resId: Int) {
+                  val result = Intent()
+                  result.putExtra("icon", bitmap)
+                  result.putExtra(Intent.EXTRA_SHORTCUT_ICON, bitmap)
+                  if (resId != 0) {
+                      val iconRes = Intent.ShortcutIconResource.fromContext(this, resId)
+                      result.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconRes)
+                  }
+                  setResult(Activity.RESULT_OK, result)
+                  Toast.makeText(this, "图标已生成并注入桌面！", Toast.LENGTH_SHORT).show()
+                  finish()
+              }
+
+              private fun roundedBg(hexColor: String, radiusPx: Int): GradientDrawable {
+                  return GradientDrawable().apply {
+                      shape = GradientDrawable.RECTANGLE
+                      cornerRadius = radiusPx.toFloat()
+                      setColor(Color.parseColor(hexColor))
+                  }
+              }
+
+              private fun dp(value: Int): Int {
+                  return (value * resources.displayMetrics.density).toInt()
+              }
+          }
           EOF
 
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/MainActivity.kt
@@ -422,13 +784,13 @@ jobs:
                   }
 
                   val titleView = TextView(this).apply {
-                      text = "☢️ 核芯壁纸引擎 2.0 · 一加16专版"
+                      text = "☢️ 核芯壁纸引擎 3.0 · 一加16终极版"
                       textSize = 22f
                       setTextColor(Color.parseColor("#00F5D4"))
                       typeface = Typeface.DEFAULT_BOLD
                   }
                   val subTitleView = TextView(this).apply {
-                      text = "无损自由缩放平移 | 165/185Hz 满血高刷 | 内置一加全息图标包"
+                      text = "无损自由缩放平移 | 185Hz 满血高刷 | 相册自定义图标包工坊"
                       textSize = 12.5f
                       setTextColor(Color.parseColor("#8E9AAF"))
                       setPadding(0, dp(6), 0, dp(18))
@@ -468,8 +830,36 @@ jobs:
                   }
                   container.addView(statusLabel)
 
-                  // 1. 核心模式选择卡片
-                  val modeCard = createSectionCard("🎨 渲染核心模式切换（实时生效）")
+                  // 1. 图标工坊置顶卡片
+                  val iconCard = createSectionCard("🎁 一加 16 自定义图标包工坊（已内置）")
+                  val iconGuide = TextView(this).apply {
+                      text = "• 拿相册任意图片当图标：退回一加桌面 ➔ 长按任意软件点【编辑】➔ 点击左侧图标 ➔ 选择【核芯自定义图标包】➔ 即可从手机相册任选图片秒变桌面图标！\n" +
+                             "• 全局一键换整套图标：在桌面双指捏合 ➔ 点底部【图标】➔ 选本应用即可全局套上暗夜霓虹装甲！"
+                      textSize = 13f
+                      setTextColor(Color.parseColor("#D9E2EC"))
+                      setLineSpacing(dp(3).toFloat(), 1f)
+                  }
+                  iconCard.addView(iconGuide)
+
+                  val openStudioBtn = Button(this).apply {
+                      text = "🎨 预览内置图标库 & 自定义裁切工坊"
+                      textSize = 13.5f
+                      setTextColor(Color.parseColor("#00F5D4"))
+                      background = roundedBg("#222D42", dp(10))
+                      val lp = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          dp(42)
+                      ).apply { topMargin = dp(10) }
+                      layoutParams = lp
+                      setOnClickListener {
+                          startActivity(Intent(this@MainActivity, IconPickerActivity::class.java))
+                      }
+                  }
+                  iconCard.addView(openStudioBtn)
+                  container.addView(iconCard)
+
+                  // 2. 核心模式选择卡片
+                  val modeCard = createSectionCard("🎨 壁纸渲染模式切换（实时生效）")
                   val modes = listOf(
                       0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心 (GPU 演算)",
                       1 to "🕳️ 模式 2：赛博黑洞 · 引力视界星云 (GPU 演算)",
@@ -507,23 +897,23 @@ jobs:
                   updateModeButtonsUI(currentMode)
                   container.addView(modeCard)
 
-                  // 2. 新增：壁纸自由缩放 & 上下左右位置调节卡片
+                  // 3. 壁纸自由缩放 & 上下左右位置调节卡片
                   val zoomCard = createSectionCard("🔍 壁纸画面自由放大缩小 & 位置微调")
 
                   val initZoom = prefs.getInt("zoom", 100)
                   val zoomText = TextView(this).apply {
-                      text = "画面缩放比例：$initZoom%（左滑缩小留白，右滑放大特写）"
+                      text = "画面缩放比例：$initZoom%（左滑缩小，右滑放大）"
                       setTextColor(Color.WHITE)
                       textSize = 13.5f
                       setPadding(0, dp(6), 0, dp(4))
                   }
                   val zoomSeek = SeekBar(this).apply {
-                      max = 220 // 30% ~ 250%
+                      max = 220
                       progress = (initZoom - 30).coerceIn(0, 220)
                       setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                           override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                               val z = progress + 30
-                              zoomText.text = "画面缩放比例：$z%（左滑缩小留白，右滑放大特写）"
+                              zoomText.text = "画面缩放比例：$z%（左滑缩小，右滑放大）"
                               prefs.edit().putInt("zoom", z).apply()
                           }
                           override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -602,7 +992,7 @@ jobs:
                   zoomCard.addView(resetZoomBtn)
                   container.addView(zoomCard)
 
-                  // 3. 一加 16 专属高刷与陀螺仪参数
+                  // 4. 一加 16 专属高刷与陀螺仪参数
                   val paramCard = createSectionCard("⚡ 一加 16 满血高刷 & 陀螺仪视差")
 
                   val currentFps = prefs.getInt("fps", 120)
@@ -681,42 +1071,6 @@ jobs:
                   paramCard.addView(speedText)
                   paramCard.addView(speedSeek)
                   container.addView(paramCard)
-
-                  // 4. 一加 16 图标包说明与预览卡片
-                  val iconCard = createSectionCard("🎁 一加 16 (ColorOS) 全息图标包使用指南")
-                  val iconGuide = TextView(this).apply {
-                      text = "本软件已内置标准 ColorOS 图标包协议！\n" +
-                             "• 全局换图标：退回一加桌面 ➔ 双指捏合或长按空白处 ➔ 点底部【图标】➔ 往右滑找到【核芯壁纸引擎】点应用，全机所有软件自动套上暗夜全息霓虹框！\n" +
-                             "• 单个软件换图标：在一加桌面长按任意软件 ➔ 点【编辑】➔ 点图标即可从本包挑选专属定制图标！"
-                      textSize = 13f
-                      setTextColor(Color.parseColor("#D9E2EC"))
-                      setLineSpacing(dp(3).toFloat(), 1f)
-                  }
-                  iconCard.addView(iconGuide)
-
-                  val previewRow = LinearLayout(this).apply {
-                      orientation = LinearLayout.HORIZONTAL
-                      gravity = Gravity.CENTER
-                      setPadding(0, dp(12), 0, dp(4))
-                  }
-                  listOf(
-                      R.drawable.ic_launcher,
-                      R.drawable.ic_blackhole,
-                      R.drawable.ic_cyber_wechat,
-                      R.drawable.ic_cyber_game,
-                      R.drawable.ic_cyber_github
-                  ).forEach { resId ->
-                      val iv = ImageView(this).apply {
-                          setImageResource(resId)
-                          val lp = LinearLayout.LayoutParams(dp(52), dp(52)).apply {
-                              marginEnd = dp(10)
-                          }
-                          layoutParams = lp
-                      }
-                      previewRow.addView(iv)
-                  }
-                  iconCard.addView(previewRow)
-                  container.addView(iconCard)
 
                   // 5. 交互与特效开关
                   val switchCard = createSectionCard("✨ 交互水波纹与多维图层开关")
@@ -1452,7 +1806,6 @@ jobs:
                               float g = texture2D(uImageTex, flippedUv).g;
                               float b = texture2D(uImageTex, flippedUv - vec2(chroma, 0.0)).b;
                               vec3 sharpCol = vec3(r, g, b);
-                              // 缩小时边缘自动暗化为深空流光底色，拒绝难看的边缘拉伸线
                               finalColor = mix(sharpCol * 0.22, sharpCol, inBox);
                           } else if (uMode == 1) {
                               vec2 p = ((uv - 0.5 - uPan) * aspectVec / uZoom) + uTilt * 0.14 + rippleOffset;
@@ -1576,11 +1929,11 @@ jobs:
           }
           EOF
 
-      - name: Compile 2.0 Debug APK via Gradle
+      - name: Compile 3.0 Debug APK via Gradle
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload Compiled 2.0 APK Artifact
+      - name: Upload Compiled 3.0 APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NuclearWallpaper-2.0-Ultimate-APK
+          name: NuclearWallpaper-3.0-IconStudio-APK
           path: app/build/outputs/apk/debug/app-debug.apk
