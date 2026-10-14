@@ -1,4 +1,4 @@
-name: Build Nuclear Live Wallpaper APK
+name: Build Nuclear Wallpaper & OnePlus Icon Pack 2.0
 
 on:
   push:
@@ -23,11 +23,119 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Generate Full Android Project Architecture
+      - name: Generate 2.0 Project + HD Icon Pack via Python
         run: |
+          pip install pillow
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable-nodpi
+          mkdir -p app/src/main/assets
+
+          python3 - << 'PYEOF'
+          import math
+          from PIL import Image, ImageDraw, ImageFilter
+
+          OUT = "app/src/main/res/drawable-nodpi"
+
+          def rounded_mask(size, radius):
+              mask = Image.new("L", (size, size), 0)
+              d = ImageDraw.Draw(mask)
+              d.rounded_rectangle([8, 8, size - 8, size - 8], radius=radius, fill=255)
+              return mask
+
+          def make_base_squircle(bg_top, bg_bot, border_col, glow_col):
+              S = 512
+              img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              grad = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              gd = ImageDraw.Draw(grad)
+              for y in range(S):
+                  t = y / float(S)
+                  r = int(bg_top[0] * (1 - t) + bg_bot[0] * t)
+                  g = int(bg_top[1] * (1 - t) + bg_bot[1] * t)
+                  b = int(bg_top[2] * (1 - t) + bg_bot[2] * t)
+                  gd.line([(0, y), (S, y)], fill=(r, g, b, 245))
+              mask = rounded_mask(S, 118)
+              img.paste(grad, (0, 0), mask)
+
+              # 内部霓虹柔光
+              glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              gdraw = ImageDraw.Draw(glow)
+              gdraw.ellipse([96, 96, S - 96, S - 96], fill=(glow_col[0], glow_col[1], glow_col[2], 75))
+              glow = glow.filter(ImageFilter.GaussianBlur(42))
+              img = Image.alpha_composite(img, glow)
+
+              # 外框高光边
+              bdraw = ImageDraw.Draw(img)
+              bdraw.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border_col, width=7)
+              return img
+
+          # 1. 生成全局图标包底板 (icon_back.png)
+          back = make_base_squircle((16, 23, 41), (8, 11, 22), (0, 245, 212, 180), (123, 44, 191))
+          back.save(f"{OUT}/icon_back.png")
+
+          # 2. 生成全局图标包流光玻璃罩 (icon_upon.png)
+          S = 512
+          upon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          ud = ImageDraw.Draw(upon)
+          ud.rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 220), width=6)
+          ud.rounded_rectangle([18, 18, S - 18, S - 18], radius=110, outline=(155, 93, 229, 110), width=3)
+          upon.save(f"{OUT}/icon_upon.png")
+
+          # 3. 生成定制图形图标函数
+          def make_custom_icon(filename, accent1, accent2, mode):
+              base = make_base_squircle((18, 25, 46), (7, 10, 20), accent1 + (230,), accent2)
+              layer = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+              d = ImageDraw.Draw(layer)
+              cx, cy = S // 2, S // 2
+
+              if mode == "nuclear":
+                  for angle in [0, 60, 120]:
+                      rad = math.radians(angle)
+                      pts = []
+                      for t in range(0, 360, 5):
+                          tr = math.radians(t)
+                          x0, y0 = 155 * math.cos(tr), 58 * math.sin(tr)
+                          xr = cx + x0 * math.cos(rad) - y0 * math.sin(rad)
+                          yr = cy + x0 * math.sin(rad) + y0 * math.cos(rad)
+                          pts.append((xr, yr))
+                      d.polygon(pts, outline=accent1 + (235,), width=9)
+                  d.ellipse([cx - 36, cy - 36, cx + 36, cy + 36], fill=accent2 + (255,), outline=(255, 255, 255, 240), width=5)
+              elif mode == "blackhole":
+                  for r, col, w in [(145, accent2, 10), (112, accent1, 14), (82, (255, 230, 120), 8)]:
+                      d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=col + (230,), width=w)
+                  d.ellipse([cx - 56, cy - 56, cx + 56, cy + 56], fill=(5, 7, 15, 255))
+              elif mode == "chat":
+                  d.rounded_rectangle([125, 145, 387, 345], radius=65, fill=accent1 + (45,), outline=accent1 + (240,), width=12)
+                  d.ellipse([185, 225, 215, 255], fill=(255, 255, 255, 240))
+                  d.ellipse([245, 225, 275, 255], fill=accent2 + (255,))
+                  d.ellipse([305, 225, 335, 255], fill=(255, 255, 255, 240))
+              elif mode == "game":
+                  d.polygon([(cx, 120), (385, cy), (cx, 392), (127, cy)], fill=accent2 + (50,), outline=accent1 + (245,), width=12)
+                  d.ellipse([cx - 42, cy - 42, cx + 42, cy + 42], fill=accent1 + (240,))
+              elif mode == "video":
+                  d.rounded_rectangle([120, 140, 392, 372], radius=52, fill=accent2 + (45,), outline=accent1 + (240,), width=11)
+                  d.polygon([(215, 195), (215, 317), (325, 256)], fill=(255, 255, 255, 245))
+              elif mode == "code":
+                  d.arc([130, 130, 382, 382], start=0, end=360, fill=accent1 + (240,), width=12)
+                  d.line([(195, 210), (155, 256), (195, 302)], fill=(255, 255, 255, 245), width=12)
+                  d.line([(317, 210), (357, 256), (317, 302)], fill=(255, 255, 255, 245), width=12)
+                  d.line([(275, 195), (237, 317)], fill=accent2 + (255,), width=10)
+
+              glow_layer = layer.filter(ImageFilter.GaussianBlur(10))
+              out = Image.alpha_composite(base, glow_layer)
+              out = Image.alpha_composite(out, layer)
+              out.save(f"{OUT}/{filename}.png")
+
+          make_custom_icon("ic_launcher", (0, 245, 212), (247, 37, 133), "nuclear")
+          make_custom_icon("ic_nuclear_cyan", (0, 245, 212), (0, 187, 249), "nuclear")
+          make_custom_icon("ic_nuclear_purple", (155, 93, 229), (247, 37, 133), "nuclear")
+          make_custom_icon("ic_blackhole", (254, 228, 64), (155, 93, 229), "blackhole")
+          make_custom_icon("ic_cyber_wechat", (0, 245, 212), (16, 185, 129), "chat")
+          make_custom_icon("ic_cyber_game", (247, 37, 133), (254, 228, 64), "game")
+          make_custom_icon("ic_cyber_video", (0, 187, 249), (247, 37, 133), "video")
+          make_custom_icon("ic_cyber_github", (155, 93, 229), (0, 245, 212), "code")
+          PYEOF
 
           cat << 'EOF' > settings.gradle.kts
           pluginManagement {
@@ -75,8 +183,8 @@ jobs:
                   applicationId = "com.i7ruhua.nuclearwallpaper"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0-ARGON"
+                  versionCode = 2
+                  versionName = "2.0-ARGON-ULTIMATE"
               }
 
               buildTypes {
@@ -103,7 +211,7 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">核芯壁纸引擎</string>
-              <string name="wallpaper_desc">4 Argon 驱动 · OpenGL ES 2.0 实时物理视差与聚变流体引擎</string>
+              <string name="wallpaper_desc">4 Argon 2.0 · 支持自由缩放平移、185Hz高刷与一加全息图标包</string>
           </resources>
           EOF
 
@@ -111,7 +219,61 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <wallpaper xmlns:android="http://schemas.android.com/apk/res/android"
               android:description="@string/wallpaper_desc"
-              android:settingsActivity="com.i7ruhua.nuclearwallpaper.MainActivity" />
+              android:settingsActivity="com.i7ruhua.nuclearwallpaper.MainActivity"
+              android:thumbnail="@drawable/ic_launcher" />
+          EOF
+
+          # ColorOS / 主流启动器通用图标包配置 (全局自动套底板+高光框+定制图标)
+          cat << 'EOF' > app/src/main/res/xml/appfilter.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <iconback img1="icon_back" />
+              <iconupon img1="icon_upon" />
+              <scale factor="0.76" />
+
+              <item component="ComponentInfo{com.i7ruhua.nuclearwallpaper/com.i7ruhua.nuclearwallpaper.MainActivity}" drawable="ic_launcher" />
+              <item component="ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}" drawable="ic_cyber_wechat" />
+              <item component="ComponentInfo{com.ss.android.ugc.aweme/com.ss.android.ugc.aweme.splash.SplashActivity}" drawable="ic_cyber_video" />
+              <item component="ComponentInfo{com.kuaishou.nebula/com.yxcorp.gifshow.HomeActivity}" drawable="ic_cyber_video" />
+              <item component="ComponentInfo{com.tencent.tmgp.sgame/com.tencent.tmgp.sgame.SGameActivity}" drawable="ic_cyber_game" />
+              <item component="ComponentInfo{com.github.android/com.github.android.activities.MainActivity}" drawable="ic_cyber_github" />
+          </resources>
+          EOF
+          cp app/src/main/res/xml/appfilter.xml app/src/main/assets/appfilter.xml
+
+          cat << 'EOF' > app/src/main/res/xml/drawable.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <version>1</version>
+              <category title="核芯专属赛博图标" />
+              <item drawable="ic_launcher" />
+              <item drawable="ic_nuclear_cyan" />
+              <item drawable="ic_nuclear_purple" />
+              <item drawable="ic_blackhole" />
+              <item drawable="ic_cyber_wechat" />
+              <item drawable="ic_cyber_game" />
+              <item drawable="ic_cyber_video" />
+              <item drawable="ic_cyber_github" />
+              <item drawable="icon_back" />
+          </resources>
+          EOF
+          cp app/src/main/res/xml/drawable.xml app/src/main/assets/drawable.xml
+
+          cat << 'EOF' > app/src/main/res/values/icon_pack.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string-array name="icon_pack" translatable="false">
+                  <item>ic_launcher</item>
+                  <item>ic_nuclear_cyan</item>
+                  <item>ic_nuclear_purple</item>
+                  <item>ic_blackhole</item>
+                  <item>ic_cyber_wechat</item>
+                  <item>ic_cyber_game</item>
+                  <item>ic_cyber_video</item>
+                  <item>ic_cyber_github</item>
+                  <item>icon_back</item>
+              </string-array>
+          </resources>
           EOF
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
@@ -127,16 +289,40 @@ jobs:
 
               <application
                   android:allowBackup="true"
+                  android:icon="@drawable/ic_launcher"
+                  android:roundIcon="@drawable/ic_launcher"
                   android:label="@string/app_name"
                   android:supportsRtl="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
                   <activity
                       android:name=".MainActivity"
-                      android:exported="true">
+                      android:exported="true"
+                      android:label="@string/app_name">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                      <!-- 一加 ColorOS / OPPO / 主流桌面图标包识别协议 -->
+                      <intent-filter>
+                          <action android:name="org.adw.launcher.THEMES" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="com.novalauncher.THEME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="com.anddoes.launcher.THEME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="com.teslacoilsw.launcher.THEME" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                      </intent-filter>
+                      <intent-filter>
+                          <action android:name="org.adw.launcher.icons.ACTION_PICK_ICON" />
+                          <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
                   </activity>
 
@@ -172,6 +358,7 @@ jobs:
           import android.view.Gravity
           import android.view.View
           import android.widget.Button
+          import android.widget.ImageView
           import android.widget.LinearLayout
           import android.widget.ScrollView
           import android.widget.SeekBar
@@ -199,7 +386,7 @@ jobs:
                               .apply()
                           updateModeButtonsUI(2)
                           statusLabel.text = "当前状态：已载入自定义 3D 视差图片壁纸"
-                          Toast.makeText(this, "图片已注入引擎沙盒！", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "图片已注入！可在下方自由缩放和挪位置", Toast.LENGTH_SHORT).show()
                       }
                   }
               }
@@ -214,7 +401,7 @@ jobs:
                               .apply()
                           updateModeButtonsUI(3)
                           statusLabel.text = "当前状态：已载入超清视频流壁纸"
-                          Toast.makeText(this, "视频已注入引擎沙盒！", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "视频已注入！可在下方自由缩放和挪位置", Toast.LENGTH_SHORT).show()
                       }
                   }
               }
@@ -231,25 +418,24 @@ jobs:
 
                   val container = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
-                      setPadding(dp(20), dp(28), dp(20), dp(40))
+                      setPadding(dp(20), dp(26), dp(20), dp(40))
                   }
 
                   val titleView = TextView(this).apply {
-                      text = "☢️ 核芯壁纸引擎 · 4 ARGON"
-                      textSize = 24f
+                      text = "☢️ 核芯壁纸引擎 2.0 · 一加16专版"
+                      textSize = 22f
                       setTextColor(Color.parseColor("#00F5D4"))
                       typeface = Typeface.DEFAULT_BOLD
                   }
                   val subTitleView = TextView(this).apply {
-                      text = "OpenGL ES 2.0 硬件着色器 | 陀螺仪 3D 景深 | OES 视频流"
-                      textSize = 13f
+                      text = "无损自由缩放平移 | 165/185Hz 满血高刷 | 内置一加全息图标包"
+                      textSize = 12.5f
                       setTextColor(Color.parseColor("#8E9AAF"))
-                      setPadding(0, dp(6), 0, dp(20))
+                      setPadding(0, dp(6), 0, dp(18))
                   }
                   container.addView(titleView)
                   container.addView(subTitleView)
 
-                  // 激活壁纸主按钮
                   val applyBtn = Button(this).apply {
                       text = "🚀 一键激活 / 设为系统桌面壁纸"
                       textSize = 16f
@@ -278,30 +464,30 @@ jobs:
                       text = getModeDescription(prefs.getInt("mode", 0))
                       textSize = 13f
                       setTextColor(Color.parseColor("#FEE440"))
-                      setPadding(dp(4), dp(14), dp(4), dp(10))
+                      setPadding(dp(4), dp(12), dp(4), dp(6))
                   }
                   container.addView(statusLabel)
 
-                  // 核心模式选择卡片
+                  // 1. 核心模式选择卡片
                   val modeCard = createSectionCard("🎨 渲染核心模式切换（实时生效）")
                   val modes = listOf(
-                      0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心 (GPU 实时演算)",
-                      1 to "🕳️ 模式 2：赛博黑洞 · 引力视界星云 (GPU 实时演算)",
-                      2 to "🖼️ 模式 3：全息 3D 陀螺仪视差图片 (点击选相册图片)",
-                      3 to "🎬 模式 4：超清视频流 + 触摸水波纹 (点击选相册视频)"
+                      0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心 (GPU 演算)",
+                      1 to "🕳️ 模式 2：赛博黑洞 · 引力视界星云 (GPU 演算)",
+                      2 to "🖼️ 模式 3：全息 3D 视差图片 (点击选相册图片)",
+                      3 to "🎬 模式 4：超清视频流 + 水波纹 (点击选相册视频)"
                   )
                   val currentMode = prefs.getInt("mode", 0)
                   for ((mId, label) in modes) {
                       val btn = Button(this).apply {
                           text = label
-                          textSize = 14f
+                          textSize = 13.5f
                           isAllCaps = false
                           gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                          setPadding(dp(16), dp(12), dp(16), dp(12))
+                          setPadding(dp(14), dp(11), dp(14), dp(11))
                           val lp = LinearLayout.LayoutParams(
                               LinearLayout.LayoutParams.MATCH_PARENT,
                               LinearLayout.LayoutParams.WRAP_CONTENT
-                          ).apply { topMargin = dp(10) }
+                          ).apply { topMargin = dp(8) }
                           layoutParams = lp
                           setOnClickListener {
                               when (mId) {
@@ -321,49 +507,142 @@ jobs:
                   updateModeButtonsUI(currentMode)
                   container.addView(modeCard)
 
-                  // 物理与视差参数调节卡片
-                  val paramCard = createSectionCard("⚙️ 陀螺仪 3D 视差 & 帧率引擎参数")
+                  // 2. 新增：壁纸自由缩放 & 上下左右位置调节卡片
+                  val zoomCard = createSectionCard("🔍 壁纸画面自由放大缩小 & 位置微调")
 
-                  // FPS 档位
-                  val currentFps = prefs.getInt("fps", 60)
-                  val fpsLabel = TextView(this).apply {
-                      text = "目标刷新率上限：$currentFps FPS"
+                  val initZoom = prefs.getInt("zoom", 100)
+                  val zoomText = TextView(this).apply {
+                      text = "画面缩放比例：$initZoom%（左滑缩小留白，右滑放大特写）"
                       setTextColor(Color.WHITE)
-                      textSize = 14f
-                      setPadding(0, dp(8), 0, dp(4))
+                      textSize = 13.5f
+                      setPadding(0, dp(6), 0, dp(4))
+                  }
+                  val zoomSeek = SeekBar(this).apply {
+                      max = 220 // 30% ~ 250%
+                      progress = (initZoom - 30).coerceIn(0, 220)
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                              val z = progress + 30
+                              zoomText.text = "画面缩放比例：$z%（左滑缩小留白，右滑放大特写）"
+                              prefs.edit().putInt("zoom", z).apply()
+                          }
+                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                      })
+                  }
+                  zoomCard.addView(zoomText)
+                  zoomCard.addView(zoomSeek)
+
+                  val initPanX = prefs.getInt("pan_x", 50)
+                  val panXText = TextView(this).apply {
+                      text = "水平位置平移 (X轴)：${initPanX - 50}"
+                      setTextColor(Color.WHITE)
+                      textSize = 13.5f
+                      setPadding(0, dp(12), 0, dp(4))
+                  }
+                  val panXSeek = SeekBar(this).apply {
+                      max = 100
+                      progress = initPanX
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                              panXText.text = "水平位置平移 (X轴)：${progress - 50}"
+                              prefs.edit().putInt("pan_x", progress).apply()
+                          }
+                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                      })
+                  }
+                  zoomCard.addView(panXText)
+                  zoomCard.addView(panXSeek)
+
+                  val initPanY = prefs.getInt("pan_y", 50)
+                  val panYText = TextView(this).apply {
+                      text = "垂直位置平移 (Y轴)：${initPanY - 50}"
+                      setTextColor(Color.WHITE)
+                      textSize = 13.5f
+                      setPadding(0, dp(12), 0, dp(4))
+                  }
+                  val panYSeek = SeekBar(this).apply {
+                      max = 100
+                      progress = initPanY
+                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                          override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                              panYText.text = "垂直位置平移 (Y轴)：${progress - 50}"
+                              prefs.edit().putInt("pan_y", progress).apply()
+                          }
+                          override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                          override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                      })
+                  }
+                  zoomCard.addView(panYText)
+                  zoomCard.addView(panYSeek)
+
+                  val resetZoomBtn = Button(this).apply {
+                      text = "🎯 一键复位缩放与居中位置 (100%)"
+                      textSize = 13f
+                      setTextColor(Color.parseColor("#00F5D4"))
+                      background = roundedBg("#222D42", dp(10))
+                      val lp = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT,
+                          dp(40)
+                      ).apply { topMargin = dp(12) }
+                      layoutParams = lp
+                      setOnClickListener {
+                          prefs.edit()
+                              .putInt("zoom", 100)
+                              .putInt("pan_x", 50)
+                              .putInt("pan_y", 50)
+                              .apply()
+                          zoomSeek.progress = 70
+                          panXSeek.progress = 50
+                          panYSeek.progress = 50
+                          Toast.makeText(this@MainActivity, "已恢复 100% 居中默认比例", Toast.LENGTH_SHORT).show()
+                      }
+                  }
+                  zoomCard.addView(resetZoomBtn)
+                  container.addView(zoomCard)
+
+                  // 3. 一加 16 专属高刷与陀螺仪参数
+                  val paramCard = createSectionCard("⚡ 一加 16 满血高刷 & 陀螺仪视差")
+
+                  val currentFps = prefs.getInt("fps", 120)
+                  val fpsLabel = TextView(this).apply {
+                      text = "当前目标刷新率上限：$currentFps Hz"
+                      setTextColor(Color.WHITE)
+                      textSize = 13.5f
+                      setPadding(0, dp(6), 0, dp(6))
                   }
                   paramCard.addView(fpsLabel)
 
                   val fpsRow = LinearLayout(this).apply {
                       orientation = LinearLayout.HORIZONTAL
                   }
-                  listOf(30, 60, 90, 120).forEach { fpsVal ->
+                  listOf(60, 120, 165, 185).forEach { fpsVal ->
                       val fBtn = Button(this).apply {
                           text = "${fpsVal}Hz"
-                          textSize = 13f
+                          textSize = 12.5f
                           setTextColor(Color.WHITE)
                           background = roundedBg("#252F42", dp(8))
-                          val lp = LinearLayout.LayoutParams(0, dp(40), 1f).apply {
+                          val lp = LinearLayout.LayoutParams(0, dp(38), 1f).apply {
                               marginEnd = dp(6)
                           }
                           layoutParams = lp
                           setOnClickListener {
                               prefs.edit().putInt("fps", fpsVal).apply()
-                              fpsLabel.text = "目标刷新率上限：$fpsVal FPS"
-                              Toast.makeText(this@MainActivity, "已切换至 $fpsVal FPS 档位", Toast.LENGTH_SHORT).show()
+                              fpsLabel.text = "当前目标刷新率上限：$fpsVal Hz"
+                              Toast.makeText(this@MainActivity, "已解锁 $fpsVal Hz 档位", Toast.LENGTH_SHORT).show()
                           }
                       }
                       fpsRow.addView(fBtn)
                   }
                   paramCard.addView(fpsRow)
 
-                  // 陀螺仪视差强度
                   val initParallax = prefs.getInt("parallax", 65)
                   val parallaxText = TextView(this).apply {
                       text = "陀螺仪 3D 景深偏移强度：$initParallax%"
                       setTextColor(Color.WHITE)
-                      textSize = 14f
-                      setPadding(0, dp(16), 0, dp(4))
+                      textSize = 13.5f
+                      setPadding(0, dp(14), 0, dp(4))
                   }
                   val parallaxSeek = SeekBar(this).apply {
                       max = 100
@@ -380,13 +659,12 @@ jobs:
                   paramCard.addView(parallaxText)
                   paramCard.addView(parallaxSeek)
 
-                  // 能量流速 / 动画速度
                   val initSpeed = prefs.getInt("speed", 50)
                   val speedText = TextView(this).apply {
                       text = "着色器能量演化速率：$initSpeed%"
                       setTextColor(Color.WHITE)
-                      textSize = 14f
-                      setPadding(0, dp(14), 0, dp(4))
+                      textSize = 13.5f
+                      setPadding(0, dp(12), 0, dp(4))
                   }
                   val speedSeek = SeekBar(this).apply {
                       max = 100
@@ -404,13 +682,47 @@ jobs:
                   paramCard.addView(speedSeek)
                   container.addView(paramCard)
 
-                  // 交互与特效开关卡片
-                  val switchCard = createSectionCard("✨ 交互水波纹与多维图层开关")
+                  // 4. 一加 16 图标包说明与预览卡片
+                  val iconCard = createSectionCard("🎁 一加 16 (ColorOS) 全息图标包使用指南")
+                  val iconGuide = TextView(this).apply {
+                      text = "本软件已内置标准 ColorOS 图标包协议！\n" +
+                             "• 全局换图标：退回一加桌面 ➔ 双指捏合或长按空白处 ➔ 点底部【图标】➔ 往右滑找到【核芯壁纸引擎】点应用，全机所有软件自动套上暗夜全息霓虹框！\n" +
+                             "• 单个软件换图标：在一加桌面长按任意软件 ➔ 点【编辑】➔ 点图标即可从本包挑选专属定制图标！"
+                      textSize = 13f
+                      setTextColor(Color.parseColor("#D9E2EC"))
+                      setLineSpacing(dp(3).toFloat(), 1f)
+                  }
+                  iconCard.addView(iconGuide)
 
+                  val previewRow = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER
+                      setPadding(0, dp(12), 0, dp(4))
+                  }
+                  listOf(
+                      R.drawable.ic_launcher,
+                      R.drawable.ic_blackhole,
+                      R.drawable.ic_cyber_wechat,
+                      R.drawable.ic_cyber_game,
+                      R.drawable.ic_cyber_github
+                  ).forEach { resId ->
+                      val iv = ImageView(this).apply {
+                          setImageResource(resId)
+                          val lp = LinearLayout.LayoutParams(dp(52), dp(52)).apply {
+                              marginEnd = dp(10)
+                          }
+                          layoutParams = lp
+                      }
+                      previewRow.addView(iv)
+                  }
+                  iconCard.addView(previewRow)
+                  container.addView(iconCard)
+
+                  // 5. 交互与特效开关
+                  val switchCard = createSectionCard("✨ 交互水波纹与多维图层开关")
                   switchCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
                   switchCard.addView(createSwitchRow("叠加 3D 悬浮赛博星尘粒子层", "particles", true))
                   switchCard.addView(createSwitchRow("视频壁纸模式开启原声播放", "video_audio", false))
-
                   container.addView(switchCard)
 
                   rootScroll.addView(container)
@@ -462,17 +774,16 @@ jobs:
               }
 
               private fun createSwitchRow(label: String, key: String, defVal: Boolean): View {
-                  val sw = Switch(this).apply {
+                  return Switch(this).apply {
                       text = label
-                      textSize = 14f
+                      textSize = 13.5f
                       setTextColor(Color.WHITE)
                       isChecked = prefs.getBoolean(key, defVal)
-                      setPadding(0, dp(12), 0, dp(12))
+                      setPadding(0, dp(10), 0, dp(10))
                       setOnCheckedChangeListener { _, isChecked ->
                           prefs.edit().putBoolean(key, isChecked).apply()
                       }
                   }
-                  return sw
               }
 
               private fun copyUriToInternalFile(uri: Uri, targetName: String): Boolean {
@@ -629,7 +940,6 @@ jobs:
 
                   override fun onSensorChanged(event: SensorEvent) {
                       if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                          // 归一化重力倾角至 -1.0 .. 1.0
                           targetTiltX = (-event.values[0] / 9.81f).coerceIn(-1.2f, 1.2f)
                           targetTiltY = (-event.values[1] / 9.81f).coerceIn(-1.2f, 1.2f)
                       }
@@ -679,9 +989,12 @@ jobs:
                       private var mediaPlayer: MediaPlayer? = null
 
                       private var activeMode = 0
-                      private var targetFps = 60
+                      private var targetFps = 120
                       private var parallaxStrength = 0.65f
                       private var speedFactor = 1.0f
+                      private var zoomFactor = 1.0f
+                      private var panX = 0.0f
+                      private var panY = 0.0f
                       private var rippleEnabled = true
                       private var particlesEnabled = true
                       private var videoAudioEnabled = false
@@ -692,7 +1005,6 @@ jobs:
 
                       private var smoothTiltX = 0f
                       private var smoothTiltY = 0f
-                      private val stMatrix = FloatArray(16)
 
                       private val quadVertices = floatArrayOf(
                           -1f, -1f,
@@ -773,13 +1085,14 @@ jobs:
                               drawFrame()
                               EGL14.eglSwapBuffers(eglDisplay, eglSurface)
 
-                              val frameBudgetMs = (1000L / targetFps.coerceIn(24, 120))
-                              val spentMs = System.currentTimeMillis() - frameStartMs
-                              val sleepMs = frameBudgetMs - spentMs
-                              if (sleepMs > 1L) {
-                                  try {
-                                      sleep(sleepMs)
-                                  } catch (_: InterruptedException) {}
+                              if (targetFps < 144) {
+                                  val frameBudgetMs = (1000L / targetFps.coerceIn(30, 120))
+                                  val sleepMs = frameBudgetMs - (System.currentTimeMillis() - frameStartMs)
+                                  if (sleepMs > 1L) {
+                                      try {
+                                          sleep(sleepMs)
+                                      } catch (_: InterruptedException) {}
+                                  }
                               }
                           }
 
@@ -790,9 +1103,12 @@ jobs:
                           val prevMode = activeMode
                           val newVersion = prefs.getInt("media_version", 0)
                           activeMode = prefs.getInt("mode", 0)
-                          targetFps = prefs.getInt("fps", 60)
+                          targetFps = prefs.getInt("fps", 120)
                           parallaxStrength = prefs.getInt("parallax", 65) / 100f
                           speedFactor = 0.25f + (prefs.getInt("speed", 50) / 100f) * 1.75f
+                          zoomFactor = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 2.5f)
+                          panX = ((prefs.getInt("pan_x", 50) - 50) / 100f)
+                          panY = ((prefs.getInt("pan_y", 50) - 50) / 100f)
                           rippleEnabled = prefs.getBoolean("ripple", true)
                           particlesEnabled = prefs.getBoolean("particles", true)
                           videoAudioEnabled = prefs.getBoolean("video_audio", false)
@@ -900,7 +1216,6 @@ jobs:
                           if (useVideoShader && videoFrameAvailable.compareAndSet(true, false)) {
                               try {
                                   surfaceTexture?.updateTexImage()
-                                  surfaceTexture?.getTransformMatrix(stMatrix)
                               } catch (_: Exception) {}
                           }
 
@@ -914,9 +1229,10 @@ jobs:
                           val screenAspect = screenWidth.toFloat() / screenHeight.coerceAtLeast(1).toFloat()
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTime"), currentElapsedSec * speedFactor)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uRawTime"), currentElapsedSec)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uResolution"), screenWidth.toFloat(), screenHeight.toFloat())
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uScreenAspect"), screenAspect)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uMediaAspect"), mediaAspect)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uZoom"), zoomFactor)
+                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, panY)
                           GLES20.glUniform2f(
                               GLES20.glGetUniformLocation(prog, "uTilt"),
                               smoothTiltX * parallaxStrength,
@@ -1069,16 +1385,16 @@ jobs:
                       }
                   """
 
-                  // 涵盖：模式0(手搓核弹·聚变核心)、模式1(赛博黑洞视界)、模式2(自定义3D视差图片+色散+粒子+水波纹)
                   private const val FRAGMENT_SHADER_STANDARD = """
                       precision highp float;
                       varying vec2 vUv;
 
                       uniform float uTime;
                       uniform float uRawTime;
-                      uniform vec2 uResolution;
                       uniform float uScreenAspect;
                       uniform float uMediaAspect;
+                      uniform float uZoom;
+                      uniform vec2 uPan;
                       uniform vec2 uTilt;
                       uniform vec2 uTouch;
                       uniform float uTouchAge;
@@ -1107,7 +1423,6 @@ jobs:
                           vec2 uv = vUv;
                           vec2 aspectVec = vec2(uScreenAspect, 1.0);
 
-                          // 1. 计算触摸折射水波纹与能量光环
                           vec2 rippleOffset = vec2(0.0);
                           float rippleGlow = 0.0;
                           if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
@@ -1121,26 +1436,26 @@ jobs:
                           vec3 finalColor = vec3(0.0);
 
                           if (uMode == 2) {
-                              // 自定义图片 + 居中裁剪 + 陀螺仪3D视差 + 边缘色散
                               vec2 scale = vec2(1.0);
                               if (uScreenAspect > uMediaAspect) {
                                   scale.y = uMediaAspect / uScreenAspect;
                               } else {
                                   scale.x = uScreenAspect / uMediaAspect;
                               }
-                              // 预留 10% 边缘余量给陀螺仪视差平移
-                              vec2 imgUv = (uv - 0.5) * scale * 0.88 + 0.5 + uTilt * 0.055 + rippleOffset;
-                              imgUv = clamp(imgUv, 0.001, 0.999);
+                              vec2 rawUv = (uv - 0.5 - uPan) * scale * (0.90 / uZoom) + 0.5 + uTilt * 0.055 + rippleOffset;
+                              float inBox = step(0.0, rawUv.x) * step(rawUv.x, 1.0) * step(0.0, rawUv.y) * step(rawUv.y, 1.0);
+                              vec2 imgUv = clamp(rawUv, 0.001, 0.999);
                               vec2 flippedUv = vec2(imgUv.x, 1.0 - imgUv.y);
 
                               float chroma = length(uTilt) * 0.004 + rippleGlow * 0.006;
                               float r = texture2D(uImageTex, flippedUv + vec2(chroma, 0.0)).r;
                               float g = texture2D(uImageTex, flippedUv).g;
                               float b = texture2D(uImageTex, flippedUv - vec2(chroma, 0.0)).b;
-                              finalColor = vec3(r, g, b);
+                              vec3 sharpCol = vec3(r, g, b);
+                              // 缩小时边缘自动暗化为深空流光底色，拒绝难看的边缘拉伸线
+                              finalColor = mix(sharpCol * 0.22, sharpCol, inBox);
                           } else if (uMode == 1) {
-                              // 模式1：赛博黑洞·引力透镜视界
-                              vec2 p = (uv - 0.5) * aspectVec + uTilt * 0.14 + rippleOffset;
+                              vec2 p = ((uv - 0.5 - uPan) * aspectVec / uZoom) + uTilt * 0.14 + rippleOffset;
                               float r = length(p);
                               float a = atan(p.y, p.x);
                               float swirl = a + 1.2 / (r + 0.15) - uTime * 0.9;
@@ -1150,10 +1465,9 @@ jobs:
                               vec3 colA = vec3(0.48, 0.17, 0.95);
                               vec3 colB = vec3(0.0, 0.96, 0.83);
                               finalColor = mix(colA, colB, disk) * ring * 1.6 + vec3(0.95, 0.85, 1.0) * photonRing;
-                              finalColor *= smoothstep(0.11, 0.14, r); // 事件视界黑洞中心
+                              finalColor *= smoothstep(0.11, 0.14, r);
                           } else {
-                              // 模式0：手搓核弹·聚变等离子反应堆
-                              vec2 p = (uv - 0.5) * aspectVec * 2.2 + uTilt * 0.25 + rippleOffset * 2.0;
+                              vec2 p = ((uv - 0.5 - uPan) * aspectVec * 2.2 / uZoom) + uTilt * 0.25 + rippleOffset * 2.0;
                               vec2 z = p;
                               float acc = 0.0;
                               for (int i = 0; i < 5; i++) {
@@ -1174,7 +1488,6 @@ jobs:
                               finalColor = plasmaCol * acc * 0.48 + vec3(0.0, 0.98, 0.85) * corePulse;
                           }
 
-                          // 2. 叠加多景深陀螺仪 3D 悬浮粒子层
                           if (uParticles > 0.5) {
                               vec2 pUv1 = uv * aspectVec + uTilt * 0.12 + vec2(0.0, uRawTime * 0.02);
                               vec2 pUv2 = uv * aspectVec + uTilt * 0.24 + vec2(uRawTime * 0.015, -uRawTime * 0.03);
@@ -1182,14 +1495,11 @@ jobs:
                               finalColor += starLayer(pUv2, 12.0, 5.7) * 0.9;
                           }
 
-                          // 3. 叠加触摸冲击波霓虹光环
                           finalColor += vec3(0.0, 0.96, 0.83) * rippleGlow * 0.95;
-
                           gl_FragColor = vec4(finalColor, 1.0);
                       }
                   """
 
-                  // 模式3专用：OES 视频硬件纹理 + 陀螺仪3D视差 + 触摸折射水波纹 + 悬浮粒子
                   private const val FRAGMENT_SHADER_VIDEO = """
                       #extension GL_OES_EGL_image_external : require
                       precision highp float;
@@ -1197,9 +1507,10 @@ jobs:
 
                       uniform float uTime;
                       uniform float uRawTime;
-                      uniform vec2 uResolution;
                       uniform float uScreenAspect;
                       uniform float uMediaAspect;
+                      uniform float uZoom;
+                      uniform vec2 uPan;
                       uniform vec2 uTilt;
                       uniform vec2 uTouch;
                       uniform float uTouchAge;
@@ -1244,11 +1555,13 @@ jobs:
                               scale.x = uScreenAspect / uMediaAspect;
                           }
 
-                          vec2 vidUv = (uv - 0.5) * scale * 0.90 + 0.5 + uTilt * 0.045 + rippleOffset;
-                          vidUv = clamp(vidUv, 0.001, 0.999);
+                          vec2 rawUv = (uv - 0.5 - uPan) * scale * (0.90 / uZoom) + 0.5 + uTilt * 0.045 + rippleOffset;
+                          float inBox = step(0.0, rawUv.x) * step(rawUv.x, 1.0) * step(0.0, rawUv.y) * step(rawUv.y, 1.0);
+                          vec2 vidUv = clamp(rawUv, 0.001, 0.999);
                           vec2 flippedUv = vec2(vidUv.x, 1.0 - vidUv.y);
 
-                          vec3 finalColor = texture2D(uVideoTex, flippedUv).rgb;
+                          vec3 vidCol = texture2D(uVideoTex, flippedUv).rgb;
+                          vec3 finalColor = mix(vidCol * 0.22, vidCol, inBox);
 
                           if (uParticles > 0.5) {
                               vec2 pUv = uv * aspectVec + uTilt * 0.18 + vec2(0.0, uRawTime * 0.02);
@@ -1263,11 +1576,11 @@ jobs:
           }
           EOF
 
-      - name: Compile Debug APK via Gradle
+      - name: Compile 2.0 Debug APK via Gradle
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload Compiled APK Artifact
+      - name: Upload Compiled 2.0 APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NuclearWallpaper-Argon-APK
+          name: NuclearWallpaper-2.0-Ultimate-APK
           path: app/build/outputs/apk/debug/app-debug.apk
