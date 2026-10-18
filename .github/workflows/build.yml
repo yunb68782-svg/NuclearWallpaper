@@ -272,7 +272,7 @@ jobs:
                   })
                   setContentView(root)
               }
-              private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+              private fun dp(v: Number) = (v.toFloat() * resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -382,7 +382,7 @@ jobs:
                   }
                   container.addView(statusLabel)
 
-                  // 1. 轮播壁纸池管理卡片（已彻底移除花里胡哨的默认特效壁纸）
+                  // 1. 轮播壁纸池管理卡片
                   val poolCard = createSectionCard("🔁 本地与轮番播放壁纸池（支持多图+多视频混播）")
                   playlistInfoLabel = TextView(this).apply {
                       textSize = 13f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8))
@@ -427,7 +427,6 @@ jobs:
                   })
                   poolCard.addView(navRow)
 
-                  // 轮播间隔选择（严格仅在桌面亮屏可见时触发，锁屏/后台绝不运行）
                   val curInterval = prefs.getInt("carousel_mode", 1)
                   val intervalLabel = TextView(this).apply {
                       text = "⏱️ 轮番切换策略（后台零唤醒）：" + getIntervalName(curInterval)
@@ -460,7 +459,6 @@ jobs:
                   previewWrap.addView(previewCanvas)
                   previewCard.addView(previewWrap)
 
-                  // 360° 旋转滑块 + 90° 快捷按钮
                   val initRot = prefs.getInt("rotate", 0)
                   val rotHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                   rotateText = TextView(this).apply {
@@ -489,7 +487,6 @@ jobs:
                   }
                   previewCard.addView(rotateSeek)
 
-                  // 缩放滑块 (30% ~ 300%)
                   val initZoom = prefs.getInt("zoom", 100)
                   zoomText = TextView(this).apply {
                       text = "🔍 画面缩放大小：$initZoom%（100%为横屏全显，右滑放大铺满）"
@@ -506,7 +503,6 @@ jobs:
                   }
                   previewCard.addView(zoomText); previewCard.addView(zoomSeek)
 
-                  // 四周边缘裁切滑块 (0% ~ 40%)
                   val initCrop = prefs.getInt("crop", 0)
                   cropText = TextView(this).apply {
                       text = "✂️ 四周边缘裁切：$initCrop%（可裁掉视频/图片四周黑边或水印）"
@@ -522,7 +518,6 @@ jobs:
                   }
                   previewCard.addView(cropText); previewCard.addView(cropSeek)
 
-                  // X / Y 平移滑块
                   panXSeek = SeekBar(this).apply {
                       max = 100; progress = prefs.getInt("pan_x", 50)
                       setOnSeekBarChangeListener(simpleSeek { p -> prefs.edit().putInt("pan_x", p).apply(); previewCanvas.invalidate() })
@@ -581,7 +576,6 @@ jobs:
                   })
                   webCard.addView(searchBtnRow)
 
-                  // 快捷推荐频道标签
                   val tagRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(8)) }
                   listOf("⚔️ 拔刀剑客" to "anime katana sword", "🌌 鬼刀WLOP" to "WLOP", "🌃 赛博霓虹" to "cyberpunk anime", "🔥 4K总榜" to "anime 4k").forEach { (title, kw) ->
                       tagRow.addView(Button(this).apply {
@@ -595,7 +589,6 @@ jobs:
                   }
                   webCard.addView(tagRow)
 
-                  // 开源高清动态视频壁纸一键下载直连
                   val openVidRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, dp(8)) }
                   listOf(
                       "🎬 下载开源动态壁纸1(星际流体)" to "https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4",
@@ -701,7 +694,6 @@ jobs:
                   prefs.edit().putInt("media_version", prefs.getInt("media_version", 0) + 1).apply()
               }
 
-              // 联网直连 Wallhaven API 获取 4K 壁纸推荐与搜索结果
               private fun fetchWallhavenOnline(query: String) {
                   onlineGrid.removeAllViews()
                   statusLabel.text = "🌐 正在搜索在线壁纸: $query ..."
@@ -770,7 +762,6 @@ jobs:
                   }
               }
 
-              // 1:1 物理对齐的 360° 旋转 + 四周裁切 + 实时预览自定义 View
               inner class LiveStylePreviewView(ctx: Context) : View(ctx) {
                   private var previewBmp: Bitmap? = null
                   private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -843,7 +834,6 @@ jobs:
 
                       canvas.save()
                       canvas.clipPath(outerClip)
-                      // 纯净深空黑底色，彻底去除残影
                       canvas.drawColor(Color.parseColor("#070A12"))
 
                       val zoom = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
@@ -875,7 +865,6 @@ jobs:
                           canvas.drawText("请先添加本地壁纸或点击下方在线壁纸", w * 0.5f, h * 0.5f, textPaint)
                       }
 
-                      // 桌面布局参考虚线
                       canvas.drawRoundRect(RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.24f), dp(8).toFloat(), dp(8).toFloat(), dashPaint)
                       for (r in 0..2) for (c in 0..3) {
                           val ix = w * (0.14f + c * 0.22f); val iy = h * (0.33f + r * 0.13f)
@@ -912,7 +901,7 @@ jobs:
                   true
               } catch (_: Exception) { false }
               private fun roundedBg(hex: String, r: Int) = GradientDrawable().apply { cornerRadius = r.toFloat(); setColor(Color.parseColor(hex)) }
-              private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+              private fun dp(v: Number) = (v.toFloat() * resources.displayMetrics.density).toInt()
           }
           EOF
 
@@ -979,7 +968,6 @@ jobs:
                           renderThread?.onDesktopBecameVisible()
                           renderThread?.setPaused(false)
                       } else {
-                          // 离开桌面或锁屏时彻底解绑传感器并挂起渲染线程，后台 0 运行
                           sensorManager.unregisterListener(this)
                           renderThread?.setPaused(true)
                       }
@@ -1083,7 +1071,6 @@ jobs:
                       fun notifyPrefsChanged() { prefsDirty.set(true); synchronized(this) { (this as Object).notifyAll() } }
                       fun requestStop() { running.set(false); synchronized(this) { (this as Object).notifyAll() } }
 
-                      // 每次从其他软件退回桌面或解锁亮屏时触发
                       fun onDesktopBecameVisible() {
                           if (prefs.getInt("carousel_mode", 1) == 1) {
                               advancePlaylistByOne()
@@ -1115,7 +1102,6 @@ jobs:
                               if (!running.get()) break
                               if (prefsDirty.compareAndSet(true, false)) syncPrefsAndPlaylist()
 
-                              // 仅在桌面可见时检查定时轮播（后台完全休眠不耗电）
                               val now = System.currentTimeMillis()
                               if (carouselMode == 2 && now - lastSwitchMs > 60_000L) advancePlaylistByOne()
                               else if (carouselMode == 3 && now - lastSwitchMs > 300_000L) advancePlaylistByOne()
@@ -1285,7 +1271,6 @@ jobs:
                       varying vec2 vUv;
                       void main() { vUv = aPosition * 0.5 + 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
                   """
-                  // 1:1 匹配预览框的 360° 旋转矩阵 + 自由裁切 + 纯净黑底无残影
                   private const val COMMON_BODY = """
                       vec2 scrUv = vec2(vUv.x, 1.0 - vUv.y);
                       vec2 asp = vec2(uScreenAspect, 1.0);
