@@ -1,4 +1,4 @@
-name: Build Nuclear Wallpaper 4.0 Live Preview & Icon Studio
+name: Build Nuclear Wallpaper 5.0 Pro
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Generate 4.0 Project & Icon Pack
+      - name: Generate 5.0 Clean Architecture
         run: |
           pip install pillow
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
@@ -52,54 +52,28 @@ jobs:
               return img
 
           base_box((16, 23, 41), (8, 11, 22), (0, 245, 212, 190), (123, 44, 191)).save(f"{OUT}/icon_back.png")
-
           upon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
           ImageDraw.Draw(upon).rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 230), width=7)
           upon.save(f"{OUT}/icon_upon.png")
-
           mask_img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
           ImageDraw.Draw(mask_img).rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=(255, 255, 255, 255))
           mask_img.save(f"{OUT}/icon_mask.png")
 
-          def make_icon(name, a1, a2, kind):
+          def make_icon(name, a1, a2):
               b = base_box((18, 25, 46), (7, 10, 20), a1 + (235,), a2)
               ly = Image.new("RGBA", (S, S), (0, 0, 0, 0))
               d = ImageDraw.Draw(ly)
               cx = cy = S // 2
-              if kind == "nuc":
-                  for ang in [0, 60, 120]:
-                      r = math.radians(ang)
-                      pts = [(cx + 155*math.cos(math.radians(t))*math.cos(r) - 58*math.sin(math.radians(t))*math.sin(r),
-                              cy + 155*math.cos(math.radians(t))*math.sin(r) + 58*math.sin(math.radians(t))*math.cos(r)) for t in range(0, 360, 6)]
-                      d.polygon(pts, outline=a1 + (240,), width=10)
-                  d.ellipse([cx-38, cy-38, cx+38, cy+38], fill=a2+(255,), outline=(255,255,255,245), width=5)
-              elif kind == "bh":
-                  for r, c, w in [(145, a2, 11), (110, a1, 15), (80, (255,230,120), 9)]:
-                      d.ellipse([cx-r, cy-r, cx+r, cy+r], outline=c+(235,), width=w)
-                  d.ellipse([cx-55, cy-55, cx+55, cy+55], fill=(5,7,15,255))
-              elif kind == "chat":
-                  d.rounded_rectangle([122, 142, 390, 348], radius=65, fill=a1+(50,), outline=a1+(245,), width=12)
-                  for x in [195, 256, 317]:
-                      d.ellipse([x-15, 228, x+15, 258], fill=(255,255,255,245))
-              elif kind == "game":
-                  d.polygon([(cx, 118), (388, cy), (cx, 394), (124, cy)], fill=a2+(55,), outline=a1+(245,), width=12)
-                  d.ellipse([cx-42, cy-42, cx+42, cy+42], fill=a1+(245,))
-              elif kind == "vid":
-                  d.rounded_rectangle([118, 138, 394, 374], radius=54, fill=a2+(50,), outline=a1+(245,), width=12)
-                  d.polygon([(215, 192), (215, 320), (328, 256)], fill=(255,255,255,248))
-              elif kind == "code":
-                  d.arc([128, 128, 384, 384], 0, 360, fill=a1+(245,), width=12)
-                  d.line([(275, 195), (237, 317)], fill=a2+(255,), width=12)
-              out = Image.alpha_composite(b, ly.filter(ImageFilter.GaussianBlur(9)))
-              Image.alpha_composite(out, ly).save(f"{OUT}/{name}.png")
+              for ang in [0, 60, 120]:
+                  r = math.radians(ang)
+                  pts = [(cx + 150*math.cos(math.radians(t))*math.cos(r) - 55*math.sin(math.radians(t))*math.sin(r),
+                          cy + 150*math.cos(math.radians(t))*math.sin(r) + 55*math.sin(math.radians(t))*math.cos(r)) for t in range(0, 360, 8)]
+                  d.polygon(pts, outline=a1 + (240,), width=10)
+              d.ellipse([cx-36, cy-36, cx+36, cy+36], fill=a2+(255,), outline=(255,255,255,245), width=5)
+              Image.alpha_composite(b, ly).save(f"{OUT}/{name}.png")
 
-          make_icon("ic_launcher", (0,245,212), (247,37,133), "nuc")
-          make_icon("ic_nuclear_cyan", (0,245,212), (0,187,249), "nuc")
-          make_icon("ic_blackhole", (254,228,64), (155,93,229), "bh")
-          make_icon("ic_cyber_wechat", (0,245,212), (16,185,129), "chat")
-          make_icon("ic_cyber_game", (247,37,133), (254,228,64), "game")
-          make_icon("ic_cyber_video", (0,187,249), (247,37,133), "vid")
-          make_icon("ic_cyber_github", (155,93,229), (0,245,212), "code")
+          make_icon("ic_launcher", (0,245,212), (247,37,133))
+          make_icon("ic_nuclear_cyan", (0,187,249), (155,93,229))
           PYEOF
 
           cat << 'EOF' > settings.gradle.kts
@@ -137,8 +111,8 @@ jobs:
                   applicationId = "com.i7ruhua.nuclearwallpaper"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 4
-                  versionName = "4.0-ARGON-PREVIEW"
+                  versionCode = 5
+                  versionName = "5.0-PRO"
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -157,7 +131,7 @@ jobs:
           <resources>
               <string name="app_name">核芯壁纸引擎</string>
               <string name="icon_studio_name">核芯自定义图标包</string>
-              <string name="wallpaper_desc">4 Argon 4.0 · 实时大小预览窗 + 185Hz高刷 + 一加图标包</string>
+              <string name="wallpaper_desc">5.0 纯净版 · 360°旋转裁切 | 零后台轮播 | 在线壁纸引擎</string>
           </resources>
           EOF
 
@@ -177,10 +151,6 @@ jobs:
               <iconupon img1="icon_upon" />
               <scale factor="0.78" />
               <item component="ComponentInfo{com.i7ruhua.nuclearwallpaper/com.i7ruhua.nuclearwallpaper.MainActivity}" drawable="ic_launcher" />
-              <item component="ComponentInfo{com.tencent.mm/com.tencent.mm.ui.LauncherUI}" drawable="ic_cyber_wechat" />
-              <item component="ComponentInfo{com.ss.android.ugc.aweme/com.ss.android.ugc.aweme.splash.SplashActivity}" drawable="ic_cyber_video" />
-              <item component="ComponentInfo{com.tencent.tmgp.sgame/com.tencent.tmgp.sgame.SGameActivity}" drawable="ic_cyber_game" />
-              <item component="ComponentInfo{com.github.android/com.github.android.activities.MainActivity}" drawable="ic_cyber_github" />
           </resources>
           EOF
           cp app/src/main/res/xml/appfilter.xml app/src/main/assets/appfilter.xml
@@ -192,35 +162,15 @@ jobs:
               <category title="核芯高定图标" />
               <item drawable="ic_launcher" />
               <item drawable="ic_nuclear_cyan" />
-              <item drawable="ic_blackhole" />
-              <item drawable="ic_cyber_wechat" />
-              <item drawable="ic_cyber_game" />
-              <item drawable="ic_cyber_video" />
-              <item drawable="ic_cyber_github" />
               <item drawable="icon_back" />
           </resources>
           EOF
           cp app/src/main/res/xml/drawable.xml app/src/main/assets/drawable.xml
 
-          cat << 'EOF' > app/src/main/res/values/icon_pack.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string-array name="icon_pack" translatable="false">
-                  <item>ic_launcher</item>
-                  <item>ic_nuclear_cyan</item>
-                  <item>ic_blackhole</item>
-                  <item>ic_cyber_wechat</item>
-                  <item>ic_cyber_game</item>
-                  <item>ic_cyber_video</item>
-                  <item>ic_cyber_github</item>
-                  <item>icon_back</item>
-              </string-array>
-          </resources>
-          EOF
-
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
               <uses-feature android:name="android.software.live_wallpaper" android:required="true" />
               <uses-feature android:glEsVersion="0x00020000" android:required="true" />
               <application
@@ -229,6 +179,7 @@ jobs:
                   android:roundIcon="@drawable/ic_launcher"
                   android:label="@string/app_name"
                   android:supportsRtl="true"
+                  android:usesCleartextTraffic="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
                   <activity android:name=".MainActivity" android:exported="true" android:label="@string/app_name">
@@ -249,10 +200,6 @@ jobs:
                       </intent-filter>
                       <intent-filter>
                           <action android:name="com.novalauncher.THEME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                      <intent-filter>
-                          <action android:name="com.anddoes.launcher.THEME" />
                           <category android:name="android.intent.category.DEFAULT" />
                       </intent-filter>
                   </activity>
@@ -281,149 +228,50 @@ jobs:
           import android.graphics.drawable.GradientDrawable
           import android.net.Uri
           import android.os.Bundle
-          import android.view.Gravity
           import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
 
           class IconPickerActivity : AppCompatActivity() {
-              private var shapeStyle = 1
-              private val styleBtns = mutableListOf<Button>()
-
               private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                   if (uri != null) {
-                      val bmp = makeIconBitmap(uri, shapeStyle)
-                      if (bmp != null) sendIconResult(bmp, 0)
+                      contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }?.let { src ->
+                          val sz = 240
+                          val out = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
+                          val c = Canvas(out)
+                          val sc = maxOf(sz.toFloat() / src.width, sz.toFloat() / src.height)
+                          val m = Matrix().apply { setScale(sc, sc); postTranslate((sz - src.width * sc) * 0.5f, (sz - src.height * sc) * 0.5f) }
+                          val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                              shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) }
+                          }
+                          val rect = RectF(6f, 6f, sz - 6f, sz - 6f)
+                          c.drawRoundRect(rect, 54f, 54f, p)
+                          src.recycle()
+                          val res = Intent().apply { putExtra("icon", out); putExtra(Intent.EXTRA_SHORTCUT_ICON, out) }
+                          setResult(Activity.RESULT_OK, res); finish()
+                      }
                   }
               }
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   window.statusBarColor = Color.parseColor("#0B0F19")
-                  val scroll = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#0B0F19")); isFillViewport = true }
-                  val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(24), dp(18), dp(36)) }
-
+                  val root = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.parseColor("#0B0F19"))
+                      setPadding(dp(20), dp(32), dp(20), dp(32))
+                  }
                   root.addView(TextView(this).apply {
-                      text = "🎨 一加 ColorOS 自定义图标工坊"
-                      textSize = 21f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
+                      text = "🎨 核芯自定义图标工坊"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
                   })
-
-                  val card1 = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL; background = rBg("#151C2C", dp(14)); setPadding(dp(14), dp(14), dp(14), dp(14))
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
-                  }
-                  card1.addView(TextView(this).apply {
-                      text = "📸 第一步：选择裁切形状 ➔ 从相册选图当图标"; textSize = 14f; setTextColor(Color.parseColor("#00BBF9"))
-                  })
-
-                  val gridStyle = GridLayout(this).apply { columnCount = 2 }
-                  listOf(0 to "一加圆角", 1 to "霓虹发光框", 2 to "纯圆头像", 3 to "无裁切原图").forEach { (id, name) ->
-                      val b = Button(this).apply {
-                          text = name; textSize = 12.5f; isAllCaps = false
-                          layoutParams = GridLayout.LayoutParams().apply {
-                              width = 0; height = dp(40); columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-                              setMargins(dp(4), dp(6), dp(4), dp(4))
-                          }
-                          setOnClickListener { shapeStyle = id; refreshStyleUI() }
-                      }
-                      styleBtns.add(b); gridStyle.addView(b)
-                  }
-                  refreshStyleUI()
-                  card1.addView(gridStyle)
-
-                  card1.addView(Button(this).apply {
-                      text = "🖼️ 从手机相册任选图片生成桌面图标"
-                      textSize = 15f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#0B0F19"))
-                      background = rBg("#00F5D4", dp(12))
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+                  root.addView(Button(this).apply {
+                      text = "🖼️ 从相册选任意图片生成一加圆角图标"
+                      textSize = 15f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
+                      background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Color.parseColor("#00F5D4")) }
+                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) }
                       setOnClickListener { pickPhoto.launch("image/*") }
                   })
-                  root.addView(card1)
-
-                  val card2 = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL; background = rBg("#151C2C", dp(14)); setPadding(dp(14), dp(14), dp(14), dp(14))
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
-                  }
-                  card2.addView(TextView(this).apply {
-                      text = "⚡ 或直接点击下方内置高定图标（点击即换）："; textSize = 14f; setTextColor(Color.parseColor("#FEE440"))
-                  })
-
-                  val iconGrid = GridLayout(this).apply { columnCount = 4 }
-                  listOf(
-                      R.drawable.ic_launcher to "聚变核", R.drawable.ic_nuclear_cyan to "量子青",
-                      R.drawable.ic_blackhole to "黑洞", R.drawable.ic_cyber_wechat to "社交",
-                      R.drawable.ic_cyber_game to "电竞", R.drawable.ic_cyber_video to "影音",
-                      R.drawable.ic_cyber_github to "极客", R.drawable.icon_back to "暗夜框"
-                  ).forEach { (resId, label) ->
-                      val cell = LinearLayout(this).apply {
-                          orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-                          background = rBg("#1E2638", dp(10)); setPadding(dp(6), dp(10), dp(6), dp(8))
-                          layoutParams = GridLayout.LayoutParams().apply {
-                              width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(6), dp(4), dp(4))
-                          }
-                          setOnClickListener {
-                              val raw = BitmapFactory.decodeResource(resources, resId)
-                              sendIconResult(Bitmap.createScaledBitmap(raw, 240, 240, true), resId)
-                          }
-                      }
-                      cell.addView(ImageView(this).apply { setImageResource(resId); layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)) })
-                      cell.addView(TextView(this).apply { text = label; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
-                      iconGrid.addView(cell)
-                  }
-                  card2.addView(iconGrid)
-                  root.addView(card2)
-                  scroll.addView(root); setContentView(scroll)
+                  setContentView(root)
               }
-
-              private fun refreshStyleUI() {
-                  styleBtns.forEachIndexed { i, b ->
-                      b.background = rBg(if (i == shapeStyle) "#7B2CBF" else "#222D42", dp(8))
-                      b.setTextColor(Color.parseColor(if (i == shapeStyle) "#00F5D4" else "#D9E2EC"))
-                  }
-              }
-
-              private fun makeIconBitmap(uri: Uri, style: Int): Bitmap? {
-                  return try {
-                      val src = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: return null
-                      val sz = 240
-                      val out = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
-                      val c = Canvas(out)
-                      val sc = maxOf(sz.toFloat() / src.width, sz.toFloat() / src.height)
-                      val m = Matrix().apply {
-                          setScale(sc, sc)
-                          postTranslate((sz - src.width * sc) * 0.5f, (sz - src.height * sc) * 0.5f)
-                      }
-                      val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-                          shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) }
-                      }
-                      val rect = RectF(6f, 6f, sz - 6f, sz - 6f)
-                      when (style) {
-                          0 -> c.drawRoundRect(rect, 54f, 54f, p)
-                          1 -> {
-                              c.drawRoundRect(rect, 54f, 54f, p)
-                              c.drawRoundRect(rect, 54f, 54f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                  this.style = Paint.Style.STROKE; strokeWidth = 6f; color = Color.parseColor("#00F5D4")
-                              })
-                          }
-                          2 -> c.drawOval(rect, p)
-                          else -> c.drawRect(0f, 0f, sz.toFloat(), sz.toFloat(), p)
-                      }
-                      src.recycle(); out
-                  } catch (_: Exception) { null }
-              }
-
-              private fun sendIconResult(bmp: Bitmap, resId: Int) {
-                  val res = Intent().apply {
-                      putExtra("icon", bmp)
-                      putExtra(Intent.EXTRA_SHORTCUT_ICON, bmp)
-                      if (resId != 0) putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, Intent.ShortcutIconResource.fromContext(this@IconPickerActivity, resId))
-                  }
-                  setResult(Activity.RESULT_OK, res)
-                  Toast.makeText(this, "图标已替换！", Toast.LENGTH_SHORT).show()
-                  finish()
-              }
-
-              private fun rBg(hex: String, r: Int) = GradientDrawable().apply { cornerRadius = r.toFloat(); setColor(Color.parseColor(hex)) }
               private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
           }
           EOF
@@ -446,39 +294,53 @@ jobs:
           import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
+          import org.json.JSONObject
           import java.io.File
           import java.io.FileOutputStream
+          import java.net.HttpURLConnection
+          import java.net.URL
+          import java.net.URLEncoder
+          import kotlin.concurrent.thread
 
           class MainActivity : AppCompatActivity() {
 
               private val prefs by lazy { getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE) }
+              private val playlistDir by lazy { File(filesDir, "playlist").apply { if (!exists()) mkdirs() } }
+
               private lateinit var statusLabel: TextView
+              private lateinit var playlistInfoLabel: TextView
               private lateinit var previewCanvas: LiveStylePreviewView
               private lateinit var zoomSeek: SeekBar
+              private lateinit var rotateSeek: SeekBar
+              private lateinit var cropSeek: SeekBar
               private lateinit var panXSeek: SeekBar
               private lateinit var panYSeek: SeekBar
               private lateinit var zoomText: TextView
-              private lateinit var panXText: TextView
-              private lateinit var panYText: TextView
-              private val modeButtons = mutableListOf<Button>()
+              private lateinit var rotateText: TextView
+              private lateinit var cropText: TextView
+              private lateinit var onlineGrid: GridLayout
+              private lateinit var searchInput: EditText
 
-              private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-                  if (uri != null && copyUriToInternalFile(uri, "custom_image.jpg")) {
-                      val ver = prefs.getInt("media_version", 0) + 1
-                      prefs.edit().putInt("mode", 2).putInt("media_version", ver).apply()
-                      updateModeButtonsUI(2)
-                      previewCanvas.reloadPreviewBitmap()
-                      statusLabel.text = "当前状态：🖼️ 已载入 3D 视差图片（可在下方预览图实时拖拽/缩放）"
+              // 添加图片进轮播池并立即预览
+              private val addImagesLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
+                  if (uris.isNotEmpty()) {
+                      uris.forEachIndexed { idx, uri ->
+                          val outFile = File(playlistDir, "item_${System.currentTimeMillis()}_$idx.jpg")
+                          copyUriToFile(uri, outFile)
+                      }
+                      selectPlaylistIndex(getPlaylistFiles().size - 1)
+                      Toast.makeText(this, "已加入 ${uris.size} 张图片到轮播池！", Toast.LENGTH_SHORT).show()
                   }
               }
 
-              private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-                  if (uri != null && copyUriToInternalFile(uri, "custom_video.mp4")) {
-                      val ver = prefs.getInt("media_version", 0) + 1
-                      prefs.edit().putInt("mode", 3).putInt("media_version", ver).apply()
-                      updateModeButtonsUI(3)
-                      previewCanvas.reloadPreviewBitmap()
-                      statusLabel.text = "当前状态：🎬 已载入超清视频壁纸（可在下方预览图实时调整大小位置）"
+              // 添加视频进轮播池并立即预览
+              private val addVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+                  if (uri != null) {
+                      val outFile = File(playlistDir, "item_${System.currentTimeMillis()}.mp4")
+                      if (copyUriToFile(uri, outFile)) {
+                          selectPlaylistIndex(getPlaylistFiles().size - 1)
+                          Toast.makeText(this, "视频已加入轮播池！", Toast.LENGTH_SHORT).show()
+                      }
                   }
               }
 
@@ -488,21 +350,21 @@ jobs:
                   window.navigationBarColor = Color.parseColor("#0B0F19")
 
                   val rootScroll = ScrollView(this).apply { setBackgroundColor(Color.parseColor("#0B0F19")); isFillViewport = true }
-                  val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(24), dp(18), dp(40)) }
+                  val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(22), dp(16), dp(40)) }
 
                   container.addView(TextView(this).apply {
-                      text = "☢️ 核芯壁纸引擎 4.0 · 一加16专版"
-                      textSize = 22f; setTextColor(Color.parseColor("#00F5D4")); typeface = Typeface.DEFAULT_BOLD
+                      text = "⚡ 核芯壁纸引擎 5.0 · 纯净全能版"
+                      textSize = 21f; setTextColor(Color.parseColor("#00F5D4")); typeface = Typeface.DEFAULT_BOLD
                   })
                   container.addView(TextView(this).apply {
-                      text = "实时可视化缩放预览窗 | 185Hz 满血高刷 | ColorOS 17 图标包"
-                      textSize = 12.5f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(4), 0, dp(16))
+                      text = "360°旋转裁切 | 零后台多图视频轮播 | 在线壁纸直连搜索"
+                      textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(4), 0, dp(14))
                   })
 
                   container.addView(Button(this).apply {
-                      text = "🚀 一键激活 / 设为系统桌面壁纸"
-                      textSize = 15.5f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
-                      background = roundedBg("#00F5D4", dp(14)); setPadding(dp(14), dp(13), dp(14), dp(13))
+                      text = "🚀 一键激活 / 设为桌面动态壁纸"
+                      textSize = 15f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
+                      background = roundedBg("#00F5D4", dp(12)); setPadding(dp(14), dp(12), dp(14), dp(12))
                       setOnClickListener {
                           try {
                               startActivity(Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).apply {
@@ -515,212 +377,439 @@ jobs:
                   })
 
                   statusLabel = TextView(this).apply {
-                      text = "当前状态：就绪（下方预览窗支持手指直接拖动壁纸位置）"
-                      textSize = 12.5f; setTextColor(Color.parseColor("#FEE440")); setPadding(dp(4), dp(10), dp(4), dp(4))
+                      text = "当前状态：纯净模式（后台零驻留，仅桌面可见时渲染）"
+                      textSize = 12f; setTextColor(Color.parseColor("#FEE440")); setPadding(dp(4), dp(10), dp(4), dp(2))
                   }
                   container.addView(statusLabel)
 
-                  // 1. 实时大小 & 位置可视化样式预览卡片
-                  val previewCard = createSectionCard("📱 实时壁纸大小缩放 & 桌面布局样式预览图")
+                  // 1. 轮播壁纸池管理卡片（已彻底移除花里胡哨的默认特效壁纸）
+                  val poolCard = createSectionCard("🔁 本地与轮番播放壁纸池（支持多图+多视频混播）")
+                  playlistInfoLabel = TextView(this).apply {
+                      textSize = 13f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8))
+                  }
+                  poolCard.addView(playlistInfoLabel)
+
+                  val addRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                  addRow.addView(Button(this).apply {
+                      text = "➕ 选相册图片(可多选)"; textSize = 12.5f; isAllCaps = false; setTextColor(Color.parseColor("#0B0F19"))
+                      background = roundedBg("#00F5D4", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginEnd = dp(6) }
+                      setOnClickListener { addImagesLauncher.launch("image/*") }
+                  })
+                  addRow.addView(Button(this).apply {
+                      text = "🎬 选相册视频(.mp4)"; textSize = 12.5f; isAllCaps = false; setTextColor(Color.WHITE)
+                      background = roundedBg("#7B2CBF", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f)
+                      setOnClickListener { addVideoLauncher.launch("video/*") }
+                  })
+                  poolCard.addView(addRow)
+
+                  val navRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, dp(8)) }
+                  navRow.addView(Button(this).apply {
+                      text = "⏮️ 上一个"; textSize = 12f; setTextColor(Color.WHITE); background = roundedBg("#222D42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(6) }
+                      setOnClickListener { stepPlaylist(-1) }
+                  })
+                  navRow.addView(Button(this).apply {
+                      text = "⏭️ 下一个"; textSize = 12f; setTextColor(Color.WHITE); background = roundedBg("#222D42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(6) }
+                      setOnClickListener { stepPlaylist(1) }
+                  })
+                  navRow.addView(Button(this).apply {
+                      text = "🗑️ 清空池"; textSize = 12f; setTextColor(Color.parseColor("#FF595E")); background = roundedBg("#222D42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(36), 0.8f)
+                      setOnClickListener {
+                          playlistDir.listFiles()?.forEach { it.delete() }
+                          bumpMediaVersion()
+                          previewCanvas.reloadPreviewBitmap()
+                          updatePlaylistLabel()
+                      }
+                  })
+                  poolCard.addView(navRow)
+
+                  // 轮播间隔选择（严格仅在桌面亮屏可见时触发，锁屏/后台绝不运行）
+                  val curInterval = prefs.getInt("carousel_mode", 1)
+                  val intervalLabel = TextView(this).apply {
+                      text = "⏱️ 轮番切换策略（后台零唤醒）：" + getIntervalName(curInterval)
+                      textSize = 12.5f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(4), 0, dp(6))
+                  }
+                  poolCard.addView(intervalLabel)
+                  val intRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                  listOf(0 to "单张固定", 1 to "回桌面切", 2 to "每1分钟", 3 to "每5分钟").forEach { (m, name) ->
+                      intRow.addView(Button(this).apply {
+                          text = name; textSize = 11.5f; setTextColor(Color.WHITE); background = roundedBg("#1E2638", dp(8))
+                          layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(4) }
+                          setOnClickListener {
+                              prefs.edit().putInt("carousel_mode", m).apply()
+                              intervalLabel.text = "⏱️ 轮番切换策略（后台零唤醒）：$name"
+                          }
+                      })
+                  }
+                  poolCard.addView(intRow)
+                  container.addView(poolCard)
+
+                  // 2. 360° 旋转 + 自由裁切 + 实时样式预览卡片
+                  val previewCard = createSectionCard("🔄 360° 旋转裁切 & 实时桌面比例预览窗")
                   previewCard.addView(TextView(this).apply {
-                      text = "💡 虚线框为你的一加16桌面组件与图标参考位置，可【直接用手指在框内拖动壁纸】或拉动下方滑块："
-                      textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, 0, 0, dp(10))
+                      text = "💡 100% 默认完美对齐手机宽度！可直接用手指在框内拖动壁纸，绝无拉伸残影："
+                      textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, 0, 0, dp(8))
                   })
 
-                  val previewWrap = LinearLayout(this).apply {
-                      gravity = Gravity.CENTER
-                      setPadding(0, dp(4), 0, dp(12))
-                  }
-                  previewCanvas = LiveStylePreviewView(this).apply {
-                      layoutParams = LinearLayout.LayoutParams(dp(180), dp(390))
-                  }
+                  val previewWrap = LinearLayout(this).apply { gravity = Gravity.CENTER; setPadding(0, dp(4), 0, dp(10)) }
+                  previewCanvas = LiveStylePreviewView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(185), dp(400)) }
                   previewWrap.addView(previewCanvas)
                   previewCard.addView(previewWrap)
 
+                  // 360° 旋转滑块 + 90° 快捷按钮
+                  val initRot = prefs.getInt("rotate", 0)
+                  val rotHeader = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                  rotateText = TextView(this).apply {
+                      text = "🔄 360° 旋转角度：${initRot}°"
+                      setTextColor(Color.parseColor("#00F5D4")); textSize = 13.5f
+                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                  }
+                  rotHeader.addView(rotateText)
+                  rotHeader.addView(Button(this).apply {
+                      text = "➕ 转90°"; textSize = 11.5f; setTextColor(Color.WHITE); background = roundedBg("#7B2CBF", dp(6))
+                      layoutParams = LinearLayout.LayoutParams(dp(72), dp(32))
+                      setOnClickListener {
+                          val nextRot = (prefs.getInt("rotate", 0) + 90) % 360
+                          rotateSeek.progress = nextRot
+                      }
+                  })
+                  previewCard.addView(rotHeader)
+
+                  rotateSeek = SeekBar(this).apply {
+                      max = 360; progress = initRot.coerceIn(0, 360)
+                      setOnSeekBarChangeListener(simpleSeek { p ->
+                          rotateText.text = "🔄 360° 旋转角度：${p}°"
+                          prefs.edit().putInt("rotate", p).apply()
+                          previewCanvas.invalidate()
+                      })
+                  }
+                  previewCard.addView(rotateSeek)
+
+                  // 缩放滑块 (30% ~ 300%)
                   val initZoom = prefs.getInt("zoom", 100)
                   zoomText = TextView(this).apply {
-                      text = "🔍 画面缩放比例：$initZoom%（左滑缩小，右滑放大）"
-                      setTextColor(Color.WHITE); textSize = 13.5f
+                      text = "🔍 画面缩放大小：$initZoom%（100%为横屏全显，右滑放大铺满）"
+                      setTextColor(Color.WHITE); textSize = 13f; setPadding(0, dp(8), 0, 0)
                   }
                   zoomSeek = SeekBar(this).apply {
-                      max = 220; progress = (initZoom - 30).coerceIn(0, 220)
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
-                              val z = p + 30
-                              zoomText.text = "🔍 画面缩放比例：$z%（左滑缩小，右滑放大）"
-                              prefs.edit().putInt("zoom", z).apply()
-                              previewCanvas.invalidate()
-                          }
-                          override fun onStartTrackingTouch(s: SeekBar?) {}
-                          override fun onStopTrackingTouch(s: SeekBar?) {}
+                      max = 270; progress = (initZoom - 30).coerceIn(0, 270)
+                      setOnSeekBarChangeListener(simpleSeek { p ->
+                          val z = p + 30
+                          zoomText.text = "🔍 画面缩放大小：$z%（100%为横屏全显，右滑放大铺满）"
+                          prefs.edit().putInt("zoom", z).apply()
+                          previewCanvas.invalidate()
                       })
                   }
                   previewCard.addView(zoomText); previewCard.addView(zoomSeek)
 
-                  val initPanX = prefs.getInt("pan_x", 50)
-                  panXText = TextView(this).apply {
-                      text = "↔️ 水平位置平移 (X轴)：${initPanX - 50}"
-                      setTextColor(Color.WHITE); textSize = 13.5f; setPadding(0, dp(10), 0, 0)
+                  // 四周边缘裁切滑块 (0% ~ 40%)
+                  val initCrop = prefs.getInt("crop", 0)
+                  cropText = TextView(this).apply {
+                      text = "✂️ 四周边缘裁切：$initCrop%（可裁掉视频/图片四周黑边或水印）"
+                      setTextColor(Color.WHITE); textSize = 13f; setPadding(0, dp(8), 0, 0)
                   }
-                  panXSeek = SeekBar(this).apply {
-                      max = 100; progress = initPanX
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
-                              panXText.text = "↔️ 水平位置平移 (X轴)：${p - 50}"
-                              prefs.edit().putInt("pan_x", p).apply()
-                              previewCanvas.invalidate()
-                          }
-                          override fun onStartTrackingTouch(s: SeekBar?) {}
-                          override fun onStopTrackingTouch(s: SeekBar?) {}
+                  cropSeek = SeekBar(this).apply {
+                      max = 40; progress = initCrop.coerceIn(0, 40)
+                      setOnSeekBarChangeListener(simpleSeek { p ->
+                          cropText.text = "✂️ 四周边缘裁切：$p%（可裁掉视频/图片四周黑边或水印）"
+                          prefs.edit().putInt("crop", p).apply()
+                          previewCanvas.invalidate()
                       })
                   }
-                  previewCard.addView(panXText); previewCard.addView(panXSeek)
+                  previewCard.addView(cropText); previewCard.addView(cropSeek)
 
-                  val initPanY = prefs.getInt("pan_y", 50)
-                  panYText = TextView(this).apply {
-                      text = "↕️ 垂直位置平移 (Y轴)：${initPanY - 50}"
-                      setTextColor(Color.WHITE); textSize = 13.5f; setPadding(0, dp(10), 0, 0)
+                  // X / Y 平移滑块
+                  panXSeek = SeekBar(this).apply {
+                      max = 100; progress = prefs.getInt("pan_x", 50)
+                      setOnSeekBarChangeListener(simpleSeek { p -> prefs.edit().putInt("pan_x", p).apply(); previewCanvas.invalidate() })
                   }
                   panYSeek = SeekBar(this).apply {
-                      max = 100; progress = initPanY
-                      setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                          override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
-                              panYText.text = "↕️ 垂直位置平移 (Y轴)：${p - 50}"
-                              prefs.edit().putInt("pan_y", p).apply()
-                              previewCanvas.invalidate()
-                          }
-                          override fun onStartTrackingTouch(s: SeekBar?) {}
-                          override fun onStopTrackingTouch(s: SeekBar?) {}
-                      })
+                      max = 100; progress = prefs.getInt("pan_y", 50)
+                      setOnSeekBarChangeListener(simpleSeek { p -> prefs.edit().putInt("pan_y", p).apply(); previewCanvas.invalidate() })
                   }
-                  previewCard.addView(panYText); previewCard.addView(panYSeek)
 
                   previewCard.addView(Button(this).apply {
-                      text = "🎯 一键复位 100% 居中默认比例"
-                      textSize = 13f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(10))
-                      layoutParams = LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(10) }
+                      text = "🎯 一键复位旋转/缩放/裁切与居中 (0° / 100%)"
+                      textSize = 12.5f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(-1, dp(38)).apply { topMargin = dp(10) }
                       setOnClickListener {
-                          prefs.edit().putInt("zoom", 100).putInt("pan_x", 50).putInt("pan_y", 50).apply()
-                          zoomSeek.progress = 70; panXSeek.progress = 50; panYSeek.progress = 50
+                          prefs.edit().putInt("zoom", 100).putInt("rotate", 0).putInt("crop", 0).putInt("pan_x", 50).putInt("pan_y", 50).apply()
+                          zoomSeek.progress = 70; rotateSeek.progress = 0; cropSeek.progress = 0; panXSeek.progress = 50; panYSeek.progress = 50
                           previewCanvas.invalidate()
                       }
                   })
                   container.addView(previewCard)
 
-                  // 2. 核心模式卡片
-                  val modeCard = createSectionCard("🎨 壁纸渲染模式切换（点击切换）")
-                  listOf(
-                      0 to "☢️ 模式 1：手搓核弹 · 聚变等离子核心",
-                      1 to "🕳️ 模式 2：赛博黑洞 · 引力透镜星云",
-                      2 to "🖼️ 模式 3：全息 3D 视差图片 (点击选相册图片)",
-                      3 to "🎬 模式 4：超清视频流壁纸 (点击选相册视频)"
-                  ).forEach { (mId, label) ->
-                      val btn = Button(this).apply {
-                          text = label; textSize = 13.5f; isAllCaps = false; gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                          setPadding(dp(14), dp(10), dp(14), dp(10))
-                          layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
-                          setOnClickListener {
-                              when (mId) {
-                                  2 -> pickImageLauncher.launch("image/*")
-                                  3 -> pickVideoLauncher.launch("video/*")
-                                  else -> {
-                                      prefs.edit().putInt("mode", mId).apply()
-                                      updateModeButtonsUI(mId)
-                                      previewCanvas.reloadPreviewBitmap()
-                                  }
-                              }
-                          }
+                  // 3. 在线壁纸推荐流 + 开源动态视频 + 多源搜索引擎卡片
+                  val webCard = createSectionCard("🌐 在线壁纸引擎 & Wallpaper全网搜索（点击即下）")
+                  searchInput = EditText(this).apply {
+                      hint = "输入关键词 (如: katana / WLOP / 拔刀少女 / 宫本)"
+                      setText("anime katana")
+                      setTextColor(Color.WHITE); setHintTextColor(Color.parseColor("#6C7A89")); textSize = 13.5f
+                      background = roundedBg("#1E2638", dp(8)); setPadding(dp(12), dp(10), dp(12), dp(10))
+                  }
+                  webCard.addView(searchInput)
+
+                  val searchBtnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, dp(6)) }
+                  searchBtnRow.addView(Button(this).apply {
+                      text = "🔍 引擎内直搜4K"; textSize = 11.5f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
+                      background = roundedBg("#00F5D4", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(5) }
+                      setOnClickListener { fetchWallhavenOnline(searchInput.text.toString().trim()) }
+                  })
+                  searchBtnRow.addView(Button(this).apply {
+                      text = "🚗 搜小红车工坊"; textSize = 11.5f; setTextColor(Color.WHITE)
+                      background = roundedBg("#252F42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(5) }
+                      setOnClickListener {
+                          val q = URLEncoder.encode(searchInput.text.toString().trim(), "UTF-8")
+                          startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://steamcommunity.com/workshop/browse/?appid=431960&searchtext=$q")))
                       }
-                      modeButtons.add(btn); modeCard.addView(btn)
-                  }
-                  updateModeButtonsUI(prefs.getInt("mode", 0))
-                  container.addView(modeCard)
-
-                  // 3. 一加 16 ColorOS 17 图标工坊卡片
-                  val iconCard = createSectionCard("🎁 一加 16 (ColorOS 17) 自定义图标工坊")
-                  iconCard.addView(TextView(this).apply {
-                      text = "• 单个软件换相册图标：桌面长按任意软件 ➔ 点【编辑】➔ 点图标 ➔ 选【核芯自定义图标包】即可拿相册图片当图标！\n" +
-                             "• 全局换暗夜霓虹框：桌面双指捏合 ➔ 点底部【图标】➔ 选本软件应用！"
-                      textSize = 12.5f; setTextColor(Color.parseColor("#D9E2EC")); setLineSpacing(dp(3).toFloat(), 1f)
                   })
-                  iconCard.addView(Button(this).apply {
-                      text = "🎨 打开内置图标库 & 自定义相册裁切工坊"
-                      textSize = 13.5f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(10))
-                      layoutParams = LinearLayout.LayoutParams(-1, dp(42)).apply { topMargin = dp(10) }
-                      setOnClickListener { startActivity(Intent(this@MainActivity, IconPickerActivity::class.java)) }
+                  searchBtnRow.addView(Button(this).apply {
+                      text = "📺 搜B站4K动态源"; textSize = 11.5f; setTextColor(Color.WHITE)
+                      background = roundedBg("#7B2CBF", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f)
+                      setOnClickListener {
+                          val q = URLEncoder.encode(searchInput.text.toString().trim() + " 4K 无水印 动态壁纸", "UTF-8")
+                          startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://m.bilibili.com/search?keyword=$q")))
+                      }
                   })
-                  container.addView(iconCard)
+                  webCard.addView(searchBtnRow)
 
-                  // 4. 高刷与视差设置卡片
-                  val paramCard = createSectionCard("⚡ 一加 16 满血高刷 & 陀螺仪视差设置")
-                  val fpsLabel = TextView(this).apply {
-                      text = "当前刷新率上限：${prefs.getInt("fps", 120)} Hz"; setTextColor(Color.WHITE); textSize = 13.5f
-                  }
-                  paramCard.addView(fpsLabel)
-                  val fpsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, dp(8)) }
-                  listOf(60, 120, 165, 185).forEach { fpsVal ->
-                      fpsRow.addView(Button(this).apply {
-                          text = "${fpsVal}Hz"; textSize = 12f; setTextColor(Color.WHITE); background = roundedBg("#252F42", dp(8))
-                          layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(6) }
+                  // 快捷推荐频道标签
+                  val tagRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(8)) }
+                  listOf("⚔️ 拔刀剑客" to "anime katana sword", "🌌 鬼刀WLOP" to "WLOP", "🌃 赛博霓虹" to "cyberpunk anime", "🔥 4K总榜" to "anime 4k").forEach { (title, kw) ->
+                      tagRow.addView(Button(this).apply {
+                          text = title; textSize = 11f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#1E2638", dp(6))
+                          layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).apply { marginEnd = dp(4) }
                           setOnClickListener {
-                              prefs.edit().putInt("fps", fpsVal).apply()
-                              fpsLabel.text = "当前刷新率上限：$fpsVal Hz"
+                              searchInput.setText(kw)
+                              fetchWallhavenOnline(kw)
                           }
                       })
                   }
-                  paramCard.addView(fpsRow)
-                  paramCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
-                  paramCard.addView(createSwitchRow("叠加 3D 悬浮赛博星尘粒子层", "particles", true))
-                  paramCard.addView(createSwitchRow("视频壁纸模式开启原声播放", "video_audio", false))
-                  container.addView(paramCard)
+                  webCard.addView(tagRow)
+
+                  // 开源高清动态视频壁纸一键下载直连
+                  val openVidRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, dp(8)) }
+                  listOf(
+                      "🎬 下载开源动态壁纸1(星际流体)" to "https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4",
+                      "🎬 下载开源动态壁纸2(赛博雨夜)" to "https://cdn.pixabay.com/video/2021/08/10/84574-586228759_large.mp4"
+                  ).forEach { (label, url) ->
+                      openVidRow.addView(Button(this).apply {
+                          text = label; textSize = 11f; isAllCaps = false; setTextColor(Color.parseColor("#FEE440")); background = roundedBg("#222D42", dp(8))
+                          layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(4) }
+                          setOnClickListener { downloadMediaToPlaylist(url, true) }
+                      })
+                  }
+                  webCard.addView(openVidRow)
+
+                  webCard.addView(TextView(this).apply {
+                      text = "👇 在线壁纸实时推荐结果（点击任意缩略图直接下载进轮播池并应用）："
+                      textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(2), 0, dp(6))
+                  })
+
+                  onlineGrid = GridLayout(this).apply { columnCount = 3 }
+                  webCard.addView(onlineGrid)
+                  container.addView(webCard)
+
+                  // 4. 高刷、省电与一加图标包精简卡片
+                  val settingCard = createSectionCard("⚙️ 一加16 高刷与系统扩展")
+                  val fpsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(8)) }
+                  listOf(60, 120, 165, 185).forEach { fpsVal ->
+                      fpsRow.addView(Button(this).apply {
+                          text = "${fpsVal}Hz"; textSize = 12f; setTextColor(Color.WHITE); background = roundedBg("#252F42", dp(8))
+                          layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(5) }
+                          setOnClickListener {
+                              prefs.edit().putInt("fps", fpsVal).apply()
+                              Toast.makeText(this@MainActivity, "已切换至 $fpsVal Hz", Toast.LENGTH_SHORT).show()
+                          }
+                      })
+                  }
+                  settingCard.addView(fpsRow)
+                  settingCard.addView(createSwitchRow("开启陀螺仪 3D 晃动视差效果", "parallax_on", true))
+                  settingCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
+                  settingCard.addView(createSwitchRow("视频壁纸开启原声播放", "video_audio", false))
+
+                  settingCard.addView(Button(this).apply {
+                      text = "🎨 打开一加 ColorOS 17 相册自定义图标工坊"
+                      textSize = 13f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(8))
+                      layoutParams = LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) }
+                      setOnClickListener { startActivity(Intent(this@MainActivity, IconPickerActivity::class.java)) }
+                  })
+                  container.addView(settingCard)
 
                   rootScroll.addView(container)
                   setContentView(rootScroll)
+
+                  migrateLegacyFilesIfNeed()
+                  updatePlaylistLabel()
+                  fetchWallhavenOnline("anime katana")
               }
 
-              // 实时可视化缩放与桌面图标参考框自定义 View
+              private fun migrateLegacyFilesIfNeed() {
+                  if (getPlaylistFiles().isEmpty()) {
+                      val oldImg = File(filesDir, "custom_image.jpg")
+                      val oldVid = File(filesDir, "custom_video.mp4")
+                      if (oldVid.exists()) oldVid.copyTo(File(playlistDir, "item_init.mp4"), true)
+                      else if (oldImg.exists()) oldImg.copyTo(File(playlistDir, "item_init.jpg"), true)
+                  }
+              }
+
+              private fun getPlaylistFiles(): List<File> {
+                  return playlistDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }
+                      ?.sortedBy { it.name } ?: emptyList()
+              }
+
+              private fun selectPlaylistIndex(idx: Int) {
+                  val list = getPlaylistFiles()
+                  if (list.isEmpty()) return
+                  val safeIdx = ((idx % list.size) + list.size) % list.size
+                  prefs.edit().putInt("playlist_index", safeIdx).apply()
+                  bumpMediaVersion()
+                  previewCanvas.reloadPreviewBitmap()
+                  updatePlaylistLabel()
+              }
+
+              private fun stepPlaylist(delta: Int) {
+                  val list = getPlaylistFiles()
+                  if (list.isEmpty()) {
+                      Toast.makeText(this, "轮播池为空，请先添加图片或视频", Toast.LENGTH_SHORT).show()
+                      return
+                  }
+                  selectPlaylistIndex(prefs.getInt("playlist_index", 0) + delta)
+              }
+
+              private fun updatePlaylistLabel() {
+                  val list = getPlaylistFiles()
+                  if (list.isEmpty()) {
+                      playlistInfoLabel.text = "当前轮播池：0 个文件（请点击下方添加本地壁纸或从在线推荐一键下载）"
+                  } else {
+                      val idx = (prefs.getInt("playlist_index", 0)).coerceIn(0, list.size - 1)
+                      val f = list[idx]
+                      val type = if (f.name.endsWith(".mp4")) "🎬视频" else "🖼️图片"
+                      playlistInfoLabel.text = "当前轮播池：共 ${list.size} 个壁纸 | 正在预览第 ${idx + 1}/${list.size} 个 ($type)"
+                  }
+              }
+
+              private fun bumpMediaVersion() {
+                  prefs.edit().putInt("media_version", prefs.getInt("media_version", 0) + 1).apply()
+              }
+
+              // 联网直连 Wallhaven API 获取 4K 壁纸推荐与搜索结果
+              private fun fetchWallhavenOnline(query: String) {
+                  onlineGrid.removeAllViews()
+                  statusLabel.text = "🌐 正在搜索在线壁纸: $query ..."
+                  thread {
+                      try {
+                          val q = URLEncoder.encode(if (query.isEmpty()) "anime" else query, "UTF-8")
+                          val api = "https://wallhaven.cc/api/v1/search?q=$q&purity=100&sorting=toplist&topRange=1M"
+                          val conn = (URL(api).openConnection() as HttpURLConnection).apply {
+                              connectTimeout = 8000; readTimeout = 8000
+                              setRequestProperty("User-Agent", "Mozilla/5.0")
+                          }
+                          val json = conn.inputStream.bufferedReader().readText()
+                          val data = JSONObject(json).getJSONArray("data")
+                          val items = mutableListOf<Pair<String, String>>()
+                          for (i in 0 until minOf(6, data.length())) {
+                              val obj = data.getJSONObject(i)
+                              val thumb = obj.getJSONObject("thumbs").getString("small")
+                              val full = obj.getString("path")
+                              items.add(thumb to full)
+                          }
+                          items.forEach { (thumbUrl, fullUrl) ->
+                              val bmp = try {
+                                  (URL(thumbUrl).openConnection() as HttpURLConnection).inputStream.use { BitmapFactory.decodeStream(it) }
+                              } catch (_: Exception) { null }
+                              if (bmp != null) {
+                                  runOnUiThread {
+                                      val iv = ImageView(this@MainActivity).apply {
+                                          setImageBitmap(bmp)
+                                          scaleType = ImageView.ScaleType.CENTER_CROP
+                                          layoutParams = GridLayout.LayoutParams().apply {
+                                              width = 0; height = dp(95)
+                                              columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                                              setMargins(dp(4), dp(4), dp(4), dp(4))
+                                          }
+                                          setOnClickListener { downloadMediaToPlaylist(fullUrl, false) }
+                                      }
+                                      onlineGrid.addView(iv)
+                                  }
+                              }
+                          }
+                          runOnUiThread { statusLabel.text = "✅ 在线推荐加载完毕，点击任意图片即可自动下载并设为壁纸" }
+                      } catch (e: Exception) {
+                          runOnUiThread { statusLabel.text = "⚠️ 在线图库连接超时（可开启VPN或使用上方小红车/B站搜索）" }
+                      }
+                  }
+              }
+
+              private fun downloadMediaToPlaylist(urlStr: String, isVideo: Boolean) {
+                  Toast.makeText(this, "⬇️ 正在高速下载壁纸进轮播池...", Toast.LENGTH_SHORT).show()
+                  thread {
+                      try {
+                          val ext = if (isVideo) "mp4" else "jpg"
+                          val outFile = File(playlistDir, "item_${System.currentTimeMillis()}.$ext")
+                          val conn = (URL(urlStr).openConnection() as HttpURLConnection).apply {
+                              connectTimeout = 12000; readTimeout = 15000
+                              setRequestProperty("User-Agent", "Mozilla/5.0")
+                          }
+                          conn.inputStream.use { inp -> FileOutputStream(outFile).use { out -> inp.copyTo(out) } }
+                          runOnUiThread {
+                              selectPlaylistIndex(getPlaylistFiles().size - 1)
+                              Toast.makeText(this, "✅ 下载完成并已加入轮播池！", Toast.LENGTH_SHORT).show()
+                          }
+                      } catch (e: Exception) {
+                          runOnUiThread { Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show() }
+                      }
+                  }
+              }
+
+              // 1:1 物理对齐的 360° 旋转 + 四周裁切 + 实时预览自定义 View
               inner class LiveStylePreviewView(ctx: Context) : View(ctx) {
                   private var previewBmp: Bitmap? = null
                   private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
                   private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                       style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat(); color = Color.parseColor("#00F5D4")
                   }
+                  private val cropBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                      style = Paint.Style.STROKE; strokeWidth = dp(1.5f).toFloat(); color = Color.parseColor("#FEE440")
+                  }
                   private val dashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#88FFFFFF")
+                      style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#77FFFFFF")
                       pathEffect = DashPathEffect(floatArrayOf(10f, 8f), 0f)
                   }
                   private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                       color = Color.parseColor("#CCFFFFFF"); textSize = dp(10).toFloat(); textAlign = Paint.Align.CENTER
                   }
-                  private val clipPath = Path()
-                  private var lastTouchX = 0f
-                  private var lastTouchY = 0f
+                  private val outerClip = Path()
+                  private var lastX = 0f
+                  private var lastY = 0f
 
-                  init {
-                      reloadPreviewBitmap()
-                  }
+                  init { reloadPreviewBitmap() }
 
                   fun reloadPreviewBitmap() {
-                      previewBmp?.recycle()
-                      previewBmp = null
-                      val mode = prefs.getInt("mode", 0)
-                      try {
-                          if (mode == 2) {
-                              val f = File(filesDir, "custom_image.jpg")
-                              if (f.exists()) {
-                                  val opts = BitmapFactory.Options().apply { inSampleSize = 2 }
-                                  previewBmp = BitmapFactory.decodeFile(f.absolutePath, opts)
-                              }
-                          } else if (mode == 3) {
-                              val f = File(filesDir, "custom_video.mp4")
-                              if (f.exists()) {
+                      previewBmp?.recycle(); previewBmp = null
+                      val list = getPlaylistFiles()
+                      if (list.isNotEmpty()) {
+                          val idx = prefs.getInt("playlist_index", 0).coerceIn(0, list.size - 1)
+                          val f = list[idx]
+                          try {
+                              if (f.name.endsWith(".mp4")) {
                                   val mmr = MediaMetadataRetriever()
                                   mmr.setDataSource(f.absolutePath)
                                   previewBmp = mmr.getFrameAtTime(0)
                                   mmr.release()
+                              } else {
+                                  previewBmp = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 })
                               }
-                          }
-                      } catch (_: Exception) {}
+                          } catch (_: Exception) {}
+                      }
                       invalidate()
                   }
 
@@ -728,23 +817,19 @@ jobs:
                       when (event.actionMasked) {
                           MotionEvent.ACTION_DOWN -> {
                               parent?.requestDisallowInterceptTouchEvent(true)
-                              lastTouchX = event.x; lastTouchY = event.y
+                              lastX = event.x; lastY = event.y
                               return true
                           }
                           MotionEvent.ACTION_MOVE -> {
-                              val dx = (event.x - lastTouchX) / width.coerceAtLeast(1)
-                              val dy = (event.y - lastTouchY) / height.coerceAtLeast(1)
-                              lastTouchX = event.x; lastTouchY = event.y
-                              val newPanX = (prefs.getInt("pan_x", 50) + (dx * 100).toInt()).coerceIn(0, 100)
-                              val newPanY = (prefs.getInt("pan_y", 50) + (dy * 100).toInt()).coerceIn(0, 100)
-                              panXSeek.progress = newPanX
-                              panYSeek.progress = newPanY
+                              val dx = (event.x - lastX) / width.coerceAtLeast(1)
+                              val dy = (event.y - lastY) / height.coerceAtLeast(1)
+                              lastX = event.x; lastY = event.y
+                              panXSeek.progress = (prefs.getInt("pan_x", 50) + (dx * 100).toInt()).coerceIn(0, 100)
+                              panYSeek.progress = (prefs.getInt("pan_y", 50) + (dy * 100).toInt()).coerceIn(0, 100)
                               invalidate()
                               return true
                           }
-                          MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                              parent?.requestDisallowInterceptTouchEvent(false)
-                          }
+                          MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> parent?.requestDisallowInterceptTouchEvent(false)
                       }
                       return super.onTouchEvent(event)
                   }
@@ -753,103 +838,79 @@ jobs:
                       super.onDraw(canvas)
                       val w = width.toFloat(); val h = height.toFloat()
                       val rect = RectF(4f, 4f, w - 4f, h - 4f)
-                      clipPath.reset()
-                      clipPath.addRoundRect(rect, dp(18).toFloat(), dp(18).toFloat(), Path.Direction.CW)
+                      outerClip.reset()
+                      outerClip.addRoundRect(rect, dp(16).toFloat(), dp(16).toFloat(), Path.Direction.CW)
 
                       canvas.save()
-                      canvas.clipPath(clipPath)
-                      canvas.drawColor(Color.parseColor("#080B14"))
+                      canvas.clipPath(outerClip)
+                      // 纯净深空黑底色，彻底去除残影
+                      canvas.drawColor(Color.parseColor("#070A12"))
 
-                      val zoom = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 2.5f)
+                      val zoom = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
+                      val rot = prefs.getInt("rotate", 0).toFloat()
+                      val crop = (prefs.getInt("crop", 0) / 100f).coerceIn(0f, 0.42f)
                       val panX = (prefs.getInt("pan_x", 50) - 50) / 100f
                       val panY = (prefs.getInt("pan_y", 50) - 50) / 100f
-                      val cx = w * 0.5f + panX * w
-                      val cy = h * 0.5f + panY * h
+                      val cx = (0.5f + panX) * w
+                      val cy = (0.5f + panY) * h
 
                       val bmp = previewBmp
                       if (bmp != null && bmp.width > 0 && bmp.height > 0) {
-                          val baseScale = maxOf(w / bmp.width, h / bmp.height)
-                          val finalScale = baseScale * (zoom / 0.90f)
-                          val bw = bmp.width * finalScale
-                          val bh = bmp.height * finalScale
-                          val dst = RectF(cx - bw * 0.5f, cy - bh * 0.5f, cx + bw * 0.5f, cy + bh * 0.5f)
-                          // 绘制暗化背景与主图区域
-                          paint.alpha = 55
-                          canvas.drawBitmap(bmp, null, rect, paint)
-                          paint.alpha = 255
-                          canvas.drawBitmap(bmp, null, dst, paint)
-                          canvas.drawRect(dst, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                              style = Paint.Style.STROKE; strokeWidth = 3f; color = Color.parseColor("#FEE440")
-                          })
+                          val mAspect = bmp.width.toFloat() / bmp.height.toFloat()
+                          val bw = w * zoom
+                          val bh = (w / mAspect) * zoom
+
+                          canvas.save()
+                          canvas.translate(cx, cy)
+                          canvas.rotate(rot)
+
+                          val halfW = bw * (0.5f - crop)
+                          val halfH = bh * (0.5f - crop)
+                          val cropRect = RectF(-halfW, -halfH, halfW, halfH)
+                          canvas.clipRect(cropRect)
+                          canvas.drawBitmap(bmp, null, RectF(-bw * 0.5f, -bh * 0.5f, bw * 0.5f, bh * 0.5f), paint)
+                          canvas.drawRect(cropRect, cropBorderPaint)
+                          canvas.restore()
                       } else {
-                          // 内置核聚变/黑洞实时缩放示意环
-                          for (i in 1..4) {
-                              val r = (w * 0.12f * i) * zoom
-                              canvas.drawCircle(cx, cy, r, Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                                  style = Paint.Style.STROKE; strokeWidth = 4f
-                                  color = if (i % 2 == 0) Color.parseColor("#00F5D4") else Color.parseColor("#9B5DE5")
-                              })
-                          }
+                          canvas.drawText("请先添加本地壁纸或点击下方在线壁纸", w * 0.5f, h * 0.5f, textPaint)
                       }
 
-                      // 叠加一加 16 桌面布局参考虚线（顶部自选照片小组件 + 图标网格 + 底部 Dock 栏）
-                      val widgetRect = RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.25f)
-                      canvas.drawRoundRect(widgetRect, dp(10).toFloat(), dp(10).toFloat(), dashPaint)
-                      canvas.drawText("桌面顶部小组件区", w * 0.5f, h * 0.17f, textPaint)
-
-                      for (row in 0..2) {
-                          for (col in 0..3) {
-                              val ix = w * (0.14f + col * 0.22f)
-                              val iy = h * (0.34f + row * 0.13f)
-                              canvas.drawRoundRect(RectF(ix, iy, ix + w * 0.12f, iy + w * 0.12f), dp(4).toFloat(), dp(4).toFloat(), dashPaint)
-                          }
+                      // 桌面布局参考虚线
+                      canvas.drawRoundRect(RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.24f), dp(8).toFloat(), dp(8).toFloat(), dashPaint)
+                      for (r in 0..2) for (c in 0..3) {
+                          val ix = w * (0.14f + c * 0.22f); val iy = h * (0.33f + r * 0.13f)
+                          canvas.drawRoundRect(RectF(ix, iy, ix + w * 0.12f, iy + w * 0.12f), dp(4).toFloat(), dp(4).toFloat(), dashPaint)
                       }
-                      val dockRect = RectF(w * 0.08f, h * 0.86f, w * 0.92f, h * 0.95f)
-                      canvas.drawRoundRect(dockRect, dp(10).toFloat(), dp(10).toFloat(), dashPaint)
-                      canvas.drawText("缩放:${(zoom*100).toInt()}% (按住画面可拖动)", w * 0.5f, h * 0.82f, textPaint)
-
+                      canvas.drawText("缩放:${(zoom*100).toInt()}% | 旋转:${rot.toInt()}° | 裁切:${(crop*100).toInt()}%", w * 0.5f, h * 0.93f, textPaint)
                       canvas.restore()
-                      canvas.drawRoundRect(rect, dp(18).toFloat(), dp(18).toFloat(), framePaint)
+                      canvas.drawRoundRect(rect, dp(16).toFloat(), dp(16).toFloat(), framePaint)
                   }
               }
 
-              private fun updateModeButtonsUI(selectedMode: Int) {
-                  modeButtons.forEachIndexed { index, btn ->
-                      btn.background = roundedBg(if (index == selectedMode) "#7B2CBF" else "#1E2638", dp(10))
-                      btn.setTextColor(Color.parseColor(if (index == selectedMode) "#00F5D4" else "#D9E2EC"))
-                  }
+              private fun getIntervalName(m: Int) = when (m) { 0 -> "单张固定"; 1 -> "每次回桌面切换"; 2 -> "每1分钟"; else -> "每5分钟" }
+              private fun simpleSeek(onChange: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
+                  override fun onProgressChanged(s: SeekBar?, p: Int, f: Boolean) { onChange(p) }
+                  override fun onStartTrackingTouch(s: SeekBar?) {}
+                  override fun onStopTrackingTouch(s: SeekBar?) {}
               }
-
-              private fun createSectionCard(title: String): LinearLayout {
-                  val card = LinearLayout(this).apply {
-                      orientation = LinearLayout.VERTICAL; background = roundedBg("#151C2C", dp(14))
-                      setPadding(dp(15), dp(15), dp(15), dp(15))
-                      layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
-                  }
-                  card.addView(TextView(this).apply {
-                      text = title; textSize = 14.5f; typeface = Typeface.DEFAULT_BOLD
+              private fun createSectionCard(title: String) = LinearLayout(this).apply {
+                  orientation = LinearLayout.VERTICAL; background = roundedBg("#141B2B", dp(12))
+                  setPadding(dp(14), dp(14), dp(14), dp(14))
+                  layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+                  addView(TextView(this@MainActivity).apply {
+                      text = title; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
                       setTextColor(Color.parseColor("#00BBF9")); setPadding(0, 0, 0, dp(6))
                   })
-                  return card
               }
-
-              private fun createSwitchRow(label: String, key: String, defVal: Boolean): View {
-                  return Switch(this).apply {
-                      text = label; textSize = 13f; setTextColor(Color.WHITE)
-                      isChecked = prefs.getBoolean(key, defVal); setPadding(0, dp(8), 0, dp(8))
-                      setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean(key, isChecked).apply() }
-                  }
+              private fun createSwitchRow(label: String, key: String, defVal: Boolean) = Switch(this).apply {
+                  text = label; textSize = 13f; setTextColor(Color.WHITE)
+                  isChecked = prefs.getBoolean(key, defVal); setPadding(0, dp(7), 0, dp(7))
+                  setOnCheckedChangeListener { _, isChecked -> prefs.edit().putBoolean(key, isChecked).apply() }
               }
-
-              private fun copyUriToInternalFile(uri: Uri, targetName: String): Boolean {
-                  return try {
-                      contentResolver.openInputStream(uri)?.use { input ->
-                          FileOutputStream(File(filesDir, targetName)).use { output -> input.copyTo(output) }
-                      }
-                      true
-                  } catch (_: Exception) { false }
-              }
-
+              private fun copyUriToFile(uri: Uri, outFile: File): Boolean = try {
+                  contentResolver.openInputStream(uri)?.use { inp -> FileOutputStream(outFile).use { out -> inp.copyTo(out) } }
+                  true
+              } catch (_: Exception) { false }
               private fun roundedBg(hex: String, r: Int) = GradientDrawable().apply { cornerRadius = r.toFloat(); setColor(Color.parseColor(hex)) }
               private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
           }
@@ -910,11 +971,15 @@ jobs:
                       super.onVisibilityChanged(visible)
                       isEngineVisible = visible
                       if (visible) {
-                          sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
-                              sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                          if (prefs.getBoolean("parallax_on", true)) {
+                              sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                                  sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                              }
                           }
+                          renderThread?.onDesktopBecameVisible()
                           renderThread?.setPaused(false)
                       } else {
+                          // 离开桌面或锁屏时彻底解绑传感器并挂起渲染线程，后台 0 运行
                           sensorManager.unregisterListener(this)
                           renderThread?.setPaused(true)
                       }
@@ -942,7 +1007,7 @@ jobs:
                           val h = renderThread?.screenHeight ?: 2400
                           if (w > 0 && h > 0) {
                               touchX = (event.x / w.toFloat()).coerceIn(0f, 1f)
-                              touchY = (1f - event.y / h.toFloat()).coerceIn(0f, 1f)
+                              touchY = (event.y / h.toFloat()).coerceIn(0f, 1f)
                               lastTouchTimestamp = renderThread?.currentElapsedSec ?: 0f
                           }
                       }
@@ -956,7 +1021,7 @@ jobs:
                   override fun onSensorChanged(event: SensorEvent) {
                       if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                           targetTiltX = (-event.values[0] / 9.81f).coerceIn(-1.2f, 1.2f)
-                          targetTiltY = (-event.values[1] / 9.81f).coerceIn(-1.2f, 1.2f)
+                          targetTiltY = (event.values[1] / 9.81f).coerceIn(-1.2f, 1.2f)
                       }
                   }
 
@@ -967,7 +1032,7 @@ jobs:
                       renderThread = null
                   }
 
-                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGL") {
+                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGL5") {
                       @Volatile var screenWidth = 1080
                       @Volatile var screenHeight = 2400
                       @Volatile var currentElapsedSec = 0f
@@ -981,7 +1046,7 @@ jobs:
                       private var eglContext = EGL14.EGL_NO_CONTEXT
                       private var eglSurface = EGL14.EGL_NO_SURFACE
 
-                      private var progStandard = 0
+                      private var progImage = 0
                       private var progVideo = 0
                       private var imageTexId = 0
                       private var videoOesTexId = 0
@@ -990,19 +1055,22 @@ jobs:
                       private var videoSurface: Surface? = null
                       private var mediaPlayer: MediaPlayer? = null
 
-                      private var activeMode = 0
                       private var targetFps = 120
-                      private var parallaxStrength = 0.65f
+                      private var parallaxOn = true
                       private var zoomFactor = 1.0f
+                      private var rotateRad = 0f
+                      private var cropMargin = 0f
                       private var panX = 0f
                       private var panY = 0f
                       private var rippleEnabled = true
-                      private var particlesEnabled = true
                       private var videoAudioEnabled = false
-                      private var loadedMediaVersion = -1
+                      private var carouselMode = 1
+                      private var lastSwitchMs = System.currentTimeMillis()
+
+                      private var currentFilePath = ""
+                      private var isCurrentVideo = false
+                      private var hasValidMedia = false
                       private var mediaAspect = 0.5625f
-                      private var hasValidImage = false
-                      private var hasValidVideo = false
                       private var smoothTiltX = 0f
                       private var smoothTiltY = 0f
 
@@ -1014,6 +1082,24 @@ jobs:
                       fun setPaused(p: Boolean) { paused.set(p); synchronized(this) { (this as Object).notifyAll() } }
                       fun notifyPrefsChanged() { prefsDirty.set(true); synchronized(this) { (this as Object).notifyAll() } }
                       fun requestStop() { running.set(false); synchronized(this) { (this as Object).notifyAll() } }
+
+                      // 每次从其他软件退回桌面或解锁亮屏时触发
+                      fun onDesktopBecameVisible() {
+                          if (prefs.getInt("carousel_mode", 1) == 1) {
+                              advancePlaylistByOne()
+                          }
+                      }
+
+                      private fun advancePlaylistByOne() {
+                          val dir = File(applicationContext.filesDir, "playlist")
+                          val files = dir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }?.sortedBy { it.name } ?: emptyList()
+                          if (files.size > 1) {
+                              val next = (prefs.getInt("playlist_index", 0) + 1) % files.size
+                              prefs.edit().putInt("playlist_index", next).apply()
+                              prefsDirty.set(true)
+                          }
+                          lastSwitchMs = System.currentTimeMillis()
+                      }
 
                       override fun run() {
                           if (!initEGL()) return
@@ -1027,8 +1113,14 @@ jobs:
                                   }
                               }
                               if (!running.get()) break
-                              if (prefsDirty.compareAndSet(true, false)) syncPrefs()
-                              if (activeMode == 3 && hasValidVideo) {
+                              if (prefsDirty.compareAndSet(true, false)) syncPrefsAndPlaylist()
+
+                              // 仅在桌面可见时检查定时轮播（后台完全休眠不耗电）
+                              val now = System.currentTimeMillis()
+                              if (carouselMode == 2 && now - lastSwitchMs > 60_000L) advancePlaylistByOne()
+                              else if (carouselMode == 3 && now - lastSwitchMs > 300_000L) advancePlaylistByOne()
+
+                              if (isCurrentVideo && hasValidMedia) {
                                   try { mediaPlayer?.let { if (!it.isPlaying) it.start() } } catch (_: Exception) {}
                               } else {
                                   try { mediaPlayer?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {}
@@ -1036,8 +1128,8 @@ jobs:
 
                               val t0 = System.currentTimeMillis()
                               currentElapsedSec = (System.nanoTime() - startNs) / 1_000_000_000f
-                              smoothTiltX += (targetTiltX - smoothTiltX) * 0.08f
-                              smoothTiltY += (targetTiltY - smoothTiltY) * 0.08f
+                              smoothTiltX += ((if (parallaxOn) targetTiltX else 0f) - smoothTiltX) * 0.08f
+                              smoothTiltY += ((if (parallaxOn) targetTiltY else 0f) - smoothTiltY) * 0.08f
 
                               drawFrame()
                               EGL14.eglSwapBuffers(eglDisplay, eglSurface)
@@ -1050,36 +1142,30 @@ jobs:
                           releaseAll()
                       }
 
-                      private fun syncPrefs() {
-                          val prevMode = activeMode
-                          val newVer = prefs.getInt("media_version", 0)
-                          activeMode = prefs.getInt("mode", 0)
+                      private fun syncPrefsAndPlaylist() {
                           targetFps = prefs.getInt("fps", 120)
-                          parallaxStrength = prefs.getInt("parallax", 65) / 100f
-                          zoomFactor = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 2.5f)
+                          parallaxOn = prefs.getBoolean("parallax_on", true)
+                          zoomFactor = (prefs.getInt("zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
+                          rotateRad = Math.toRadians(prefs.getInt("rotate", 0).toDouble()).toFloat()
+                          cropMargin = (prefs.getInt("crop", 0) / 100f).coerceIn(0f, 0.42f)
                           panX = (prefs.getInt("pan_x", 50) - 50) / 100f
                           panY = (prefs.getInt("pan_y", 50) - 50) / 100f
                           rippleEnabled = prefs.getBoolean("ripple", true)
-                          particlesEnabled = prefs.getBoolean("particles", true)
                           videoAudioEnabled = prefs.getBoolean("video_audio", false)
+                          carouselMode = prefs.getInt("carousel_mode", 1)
 
-                          val reload = (newVer != loadedMediaVersion) || (prevMode != activeMode)
-                          loadedMediaVersion = newVer
+                          val dir = File(applicationContext.filesDir, "playlist")
+                          val files = dir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }?.sortedBy { it.name } ?: emptyList()
+                          if (files.isEmpty()) {
+                              hasValidMedia = false; currentFilePath = ""; return
+                          }
+                          val idx = prefs.getInt("playlist_index", 0).coerceIn(0, files.size - 1)
+                          val targetFile = files[idx]
 
-                          if (activeMode == 2 && (reload || !hasValidImage)) {
-                              val f = File(applicationContext.filesDir, "custom_image.jpg")
-                              if (f.exists()) {
-                                  val bmp = BitmapFactory.decodeFile(f.absolutePath)
-                                  if (bmp != null) {
-                                      mediaAspect = bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
-                                      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
-                                      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
-                                      bmp.recycle(); hasValidImage = true
-                                  }
-                              }
-                          } else if (activeMode == 3 && (reload || !hasValidVideo)) {
-                              val f = File(applicationContext.filesDir, "custom_video.mp4")
-                              if (f.exists()) {
+                          if (targetFile.absolutePath != currentFilePath || !hasValidMedia) {
+                              currentFilePath = targetFile.absolutePath
+                              if (targetFile.name.endsWith(".mp4")) {
+                                  isCurrentVideo = true
                                   try {
                                       mediaPlayer?.release()
                                       if (surfaceTexture == null) {
@@ -1087,13 +1173,23 @@ jobs:
                                           videoSurface = Surface(surfaceTexture)
                                       }
                                       mediaPlayer = MediaPlayer().apply {
-                                          setDataSource(f.absolutePath); setSurface(videoSurface); isLooping = true
+                                          setDataSource(targetFile.absolutePath); setSurface(videoSurface); isLooping = true
                                           val v = if (videoAudioEnabled) 1f else 0f; setVolume(v, v)
                                           setOnVideoSizeChangedListener { _, w, h -> if (w > 0 && h > 0) mediaAspect = w.toFloat() / h }
                                           prepare(); start()
                                       }
-                                      hasValidVideo = true
-                                  } catch (_: Exception) { hasValidVideo = false }
+                                      hasValidMedia = true
+                                  } catch (_: Exception) { hasValidMedia = false }
+                              } else {
+                                  isCurrentVideo = false
+                                  try { mediaPlayer?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {}
+                                  val bmp = BitmapFactory.decodeFile(targetFile.absolutePath)
+                                  if (bmp != null) {
+                                      mediaAspect = bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
+                                      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
+                                      GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0)
+                                      bmp.recycle(); hasValidMedia = true
+                                  } else hasValidMedia = false
                               }
                           }
                           try { mediaPlayer?.let { val v = if (videoAudioEnabled) 1f else 0f; it.setVolume(v, v) } } catch (_: Exception) {}
@@ -1101,41 +1197,37 @@ jobs:
 
                       private fun drawFrame() {
                           GLES20.glViewport(0, 0, screenWidth, screenHeight)
+                          GLES20.glClearColor(0.027f, 0.039f, 0.07f, 1f)
                           GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
-                          val useVid = (activeMode == 3 && hasValidVideo)
-                          if (useVid && videoFrameAvailable.compareAndSet(true, false)) {
+                          if (!hasValidMedia) return
+
+                          if (isCurrentVideo && videoFrameAvailable.compareAndSet(true, false)) {
                               try { surfaceTexture?.updateTexImage() } catch (_: Exception) {}
                           }
-                          val prog = if (useVid) progVideo else progStandard
+                          val prog = if (isCurrentVideo) progVideo else progImage
                           GLES20.glUseProgram(prog)
                           val pos = GLES20.glGetAttribLocation(prog, "aPosition")
                           GLES20.glEnableVertexAttribArray(pos)
                           GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
 
                           val sAspect = screenWidth.toFloat() / screenHeight.coerceAtLeast(1)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTime"), currentElapsedSec)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uScreenAspect"), sAspect)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uMediaAspect"), mediaAspect)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uZoom"), zoomFactor)
-                          // 与预览框方向 1:1 同步 (右移 panX>0，下移 panY>0)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, -panY)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTilt"), smoothTiltX * parallaxStrength, smoothTiltY * parallaxStrength)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uAngle"), rotateRad)
+                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uCrop"), cropMargin)
+                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, panY)
+                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTilt"), smoothTiltX * 0.035f, smoothTiltY * 0.035f)
                           GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTouch"), touchX, touchY)
                           GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTouchAge"), if (rippleEnabled) (currentElapsedSec - lastTouchTimestamp) else 999f)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uParticles"), if (particlesEnabled) 1f else 0f)
 
-                          if (useVid) {
-                              GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+                          GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+                          if (isCurrentVideo) {
                               GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, videoOesTexId)
-                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uVideoTex"), 0)
+                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uTex"), 0)
                           } else {
-                              val m = if (activeMode == 2 && hasValidImage) 2 else if (activeMode == 1) 1 else 0
-                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uMode"), m)
-                              if (m == 2) {
-                                  GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
-                                  GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
-                                  GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uImageTex"), 0)
-                              }
+                              GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
+                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uTex"), 0)
                           }
                           GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
                       }
@@ -1154,7 +1246,7 @@ jobs:
                       }
 
                       private fun initGL() {
-                          progStandard = linkProg(VS, FS_STD)
+                          progImage = linkProg(VS, FS_IMG)
                           progVideo = linkProg(VS, FS_VID)
                           val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
                           imageTexId = ids[0]; videoOesTexId = ids[1]
@@ -1193,88 +1285,56 @@ jobs:
                       varying vec2 vUv;
                       void main() { vUv = aPosition * 0.5 + 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
                   """
-                  private const val FS_STD = """
+                  // 1:1 匹配预览框的 360° 旋转矩阵 + 自由裁切 + 纯净黑底无残影
+                  private const val COMMON_BODY = """
+                      vec2 scrUv = vec2(vUv.x, 1.0 - vUv.y);
+                      vec2 asp = vec2(uScreenAspect, 1.0);
+                      vec2 rip = vec2(0.0); float glow = 0.0;
+                      if (uTouchAge >= 0.0 && uTouchAge < 2.8) {
+                          float d = length((scrUv - uTouch) * asp);
+                          rip = normalize(scrUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.02;
+                          glow = smoothstep(0.035, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.6);
+                      }
+                      float dx = (scrUv.x - 0.5 - uPan.x) * uScreenAspect + uTilt.x;
+                      float dy = (scrUv.y - 0.5 - uPan.y) + uTilt.y;
+                      float c = cos(uAngle), s = sin(uAngle);
+                      float rx = dx * c + dy * s;
+                      float ry = -dx * s + dy * c;
+                      float wPhys = uScreenAspect * uZoom;
+                      float hPhys = (uScreenAspect / uMediaAspect) * uZoom;
+                      vec2 raw = vec2(rx / wPhys + 0.5, ry / hPhys + 0.5) + rip;
+                      float inBox = step(uCrop, raw.x) * step(raw.x, 1.0 - uCrop) * step(uCrop, raw.y) * step(raw.y, 1.0 - uCrop);
+                      vec2 uv = clamp(raw, 0.001, 0.999);
+                      vec3 texCol = texture2D(uTex, uv).rgb;
+                      vec3 bgCol = vec3(0.027, 0.039, 0.07);
+                      gl_FragColor = vec4(mix(bgCol, texCol, inBox) + vec3(0.0, 0.96, 0.83) * glow, 1.0);
+                  """
+                  private const val FS_IMG = """
                       precision highp float;
                       varying vec2 vUv;
-                      uniform float uTime, uScreenAspect, uMediaAspect, uZoom, uTouchAge, uParticles;
+                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uTouchAge;
                       uniform vec2 uPan, uTilt, uTouch;
-                      uniform int uMode;
-                      uniform sampler2D uImageTex;
-                      float hash21(vec2 p){ p=fract(p*vec2(234.34,435.345)); p+=dot(p,p+34.23); return fract(p.x*p.y); }
-                      vec3 stars(vec2 uv, float sc){
-                          vec2 gv=fract(uv*sc)-0.5, id=floor(uv*sc);
-                          float n=hash21(id), d=length(gv-vec2(n-0.5,fract(n*12.7)-0.5)*0.6);
-                          return mix(vec3(0.0,0.96,0.83),vec3(0.98,0.25,0.65),fract(n*19.3))*smoothstep(0.07,0.0,d);
-                      }
-                      void main() {
-                          vec2 asp = vec2(uScreenAspect, 1.0);
-                          vec2 rip = vec2(0.0); float glow = 0.0;
-                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
-                              float d = length((vUv - uTouch) * asp);
-                              rip = normalize(vUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.025;
-                              glow = smoothstep(0.04, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.5);
-                          }
-                          vec3 col = vec3(0.0);
-                          if (uMode == 2) {
-                              vec2 sc = uScreenAspect > uMediaAspect ? vec2(1.0, uMediaAspect/uScreenAspect) : vec2(uScreenAspect/uMediaAspect, 1.0);
-                              vec2 raw = (vUv - 0.5 - uPan) * sc * (0.90 / uZoom) + 0.5 + uTilt * 0.05 + rip;
-                              float inBox = step(0.0, raw.x)*step(raw.x, 1.0)*step(0.0, raw.y)*step(raw.y, 1.0);
-                              vec2 uv = vec2(clamp(raw.x, 0.001, 0.999), 1.0 - clamp(raw.y, 0.001, 0.999));
-                              vec3 c = texture2D(uImageTex, uv).rgb;
-                              col = mix(c * 0.2, c, inBox);
-                          } else if (uMode == 1) {
-                              vec2 p = (vUv - 0.5 - uPan) * asp / uZoom + uTilt * 0.14 + rip;
-                              float r = length(p), a = atan(p.y, p.x);
-                              float ring = smoothstep(0.55, 0.18, r) * smoothstep(0.09, 0.19, r);
-                              col = mix(vec3(0.48,0.17,0.95), vec3(0.0,0.96,0.83), sin(a + 1.2/(r+0.15) - uTime)*0.5+0.5) * ring * 1.6;
-                              col += vec3(0.95,0.85,1.0) * (0.015 / (abs(r - 0.15) + 0.008));
-                              col *= smoothstep(0.11, 0.14, r);
-                          } else {
-                              vec2 p = (vUv - 0.5 - uPan) * asp * 2.2 / uZoom + uTilt * 0.25 + rip * 2.0, z = p;
-                              float acc = 0.0;
-                              for (int i = 0; i < 5; i++) {
-                                  float fi = float(i) + 1.0;
-                                  z += vec2(sin(z.y*fi*1.6 + uTime), cos(z.x*fi*1.6 - uTime)) / fi;
-                                  acc += 0.18 / (length(z - p*0.35) + 0.12);
-                              }
-                              col = (0.5 + 0.5*sin(vec3(0.0,2.1,4.2) + acc*2.2 + uTime)) * acc * 0.48;
-                          }
-                          if (uParticles > 0.5) col += stars(vUv * asp + uTilt * 0.15 + vec2(0.0, uTime*0.02), 8.0) * 0.8;
-                          gl_FragColor = vec4(col + vec3(0.0, 0.96, 0.83) * glow, 1.0);
-                      }
+                      uniform sampler2D uTex;
+                      void main() { $COMMON_BODY }
                   """
                   private const val FS_VID = """
                       #extension GL_OES_EGL_image_external : require
                       precision highp float;
                       varying vec2 vUv;
-                      uniform float uTime, uScreenAspect, uMediaAspect, uZoom, uTouchAge, uParticles;
+                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uTouchAge;
                       uniform vec2 uPan, uTilt, uTouch;
-                      uniform samplerExternalOES uVideoTex;
-                      void main() {
-                          vec2 asp = vec2(uScreenAspect, 1.0);
-                          vec2 rip = vec2(0.0); float glow = 0.0;
-                          if (uTouchAge >= 0.0 && uTouchAge < 3.0) {
-                              float d = length((vUv - uTouch) * asp);
-                              rip = normalize(vUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.025;
-                              glow = smoothstep(0.04, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.5);
-                          }
-                          vec2 sc = uScreenAspect > uMediaAspect ? vec2(1.0, uMediaAspect/uScreenAspect) : vec2(uScreenAspect/uMediaAspect, 1.0);
-                          vec2 raw = (vUv - 0.5 - uPan) * sc * (0.90 / uZoom) + 0.5 + uTilt * 0.045 + rip;
-                          float inBox = step(0.0, raw.x)*step(raw.x, 1.0)*step(0.0, raw.y)*step(raw.y, 1.0);
-                          vec2 uv = vec2(clamp(raw.x, 0.001, 0.999), 1.0 - clamp(raw.y, 0.001, 0.999));
-                          vec3 c = texture2D(uVideoTex, uv).rgb;
-                          gl_FragColor = vec4(mix(c * 0.2, c, inBox) + vec3(0.0, 0.96, 0.83) * glow, 1.0);
-                      }
+                      uniform samplerExternalOES uTex;
+                      void main() { $COMMON_BODY }
                   """
               }
           }
           EOF
 
-      - name: Compile 4.0 APK
+      - name: Compile 5.0 APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload 4.0 APK Artifact
+      - name: Upload 5.0 APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NuclearWallpaper-4.0-LivePreview-APK
+          name: NuclearWallpaper-5.0-Pro-APK
           path: app/build/outputs/apk/debug/app-debug.apk
