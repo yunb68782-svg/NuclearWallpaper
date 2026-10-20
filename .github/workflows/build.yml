@@ -23,15 +23,17 @@ jobs:
 
       - name: Generate 6.0 Clean Architecture & Built-in Dynamic Videos
         run: |
-          pip install pillow
+          pip install pillow imageio-ffmpeg
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
           mkdir -p app/src/main/res/xml app/src/main/res/values app/src/main/res/drawable-nodpi app/src/main/assets/builtin_videos
 
-          # 1. 生成应用图标与 6 套真·60fps 动态视频壁纸及 1:1 同源首帧封面（彻底杜绝404与封面货不对板）
+          # 1. 生成应用图标与 6 套真·60fps 动态视频壁纸及 1:1 同源首帧封面
           python3 - << 'PYEOF'
           import math, subprocess, os
+          import imageio_ffmpeg
           from PIL import Image, ImageDraw, ImageFilter
 
+          FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
           OUT = "app/src/main/res/drawable-nodpi"
           VID_DIR = "app/src/main/assets/builtin_videos"
           S = 512
@@ -68,7 +70,6 @@ jobs:
 
           make_icon("ic_launcher", (0,245,212), (247,37,133))
 
-          # 使用 FFmpeg 渲染 6 个高帧率无缝循环动态壁纸 MP4 + 截取真实第1帧作为封面 JPG
           presets = [
               ("dyn_1", "geq=r='12+110*sin(X/38+T*3.5)*cos(Y/45-T*2)':g='200*pow(0.5+0.5*sin(X/30+Y/40-T*4),2)':b='235*pow(0.5+0.5*cos(X/25-T*3),2)'"),
               ("dyn_2", "geq=r='240*pow(0.5+0.5*sin((X+Y)/32-T*5),3)':g='15+40*sin(Y/20+T*2)':b='90*pow(0.5+0.5*cos((X-Y)/28+T*4),2)'"),
@@ -81,12 +82,12 @@ jobs:
               mp4_path = f"{VID_DIR}/{name}.mp4"
               jpg_path = f"{VID_DIR}/{name}.jpg"
               subprocess.run([
-                  "ffmpeg", "-y", "-f", "lavfi",
+                  FFMPEG_BIN, "-y", "-f", "lavfi",
                   "-i", f"nullsrc=s=360x640:d=3:r=30,{expr},format=yuv420p",
                   "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", mp4_path
               ], check=True)
               subprocess.run([
-                  "ffmpeg", "-y", "-i", mp4_path, "-frames:v", "1", "-q:v", "3", jpg_path
+                  FFMPEG_BIN, "-y", "-i", mp4_path, "-frames:v", "1", "-q:v", "3", jpg_path
               ], check=True)
           PYEOF
 
@@ -195,7 +196,7 @@ jobs:
           </manifest>
           EOF
 
-          # 2. 独立数据与参数管理单例 WallpaperConfig.kt (解决 #4 完整性校验 & #12 代码复用)
+          # 2. 独立数据与参数管理单例 WallpaperConfig.kt
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/WallpaperConfig.kt
           package com.i7ruhua.nuclearwallpaper
 
@@ -251,7 +252,6 @@ jobs:
                       .apply()
               }
 
-              // P0-4: 严格校验图片或视频文件是否完整可解码，防止半截坏文件入库
               fun isMediaFileValid(file: File, isVideo: Boolean): Boolean {
                   if (!file.exists() || file.length() < 512L) return false
                   return try {
@@ -276,7 +276,7 @@ jobs:
           }
           EOF
 
-          # 3. 独立预览组件 LiveStylePreviewView.kt (解决 #2 裁切放大语义对齐 & #7 异步解码防卡顿)
+          # 3. 独立预览组件 LiveStylePreviewView.kt
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/LiveStylePreviewView.kt
           package com.i7ruhua.nuclearwallpaper
 
@@ -313,7 +313,6 @@ jobs:
 
               init { reloadPreviewBitmap() }
 
-              // P1-7: 异步子线程解码大图与视频帧，主线程零卡顿
               fun reloadPreviewBitmap() {
                   val f = WallpaperConfig.getCurrentFile(context)
                   val currentToken = ++loadToken
@@ -406,7 +405,6 @@ jobs:
                       canvas.drawText("⏳ 正在异步解码高清预览帧...", w * 0.5f, h * 0.5f, textPaint)
                   } else if (bmp != null && bmp.width > 0 && bmp.height > 0) {
                       val mAspect = bmp.width.toFloat() / bmp.height.toFloat()
-                      // P0-2: 与 GL Shader 完全一致的真裁切语义 —— 裁掉四周 [0, crop] 边缘并把内部画面放大铺满目标区域
                       val bw = w * zoom
                       val bh = (w / mAspect) * zoom
                       val srcLeft = (bmp.width * crop).toInt()
@@ -506,7 +504,7 @@ jobs:
           }
           EOF
 
-          # 5. 主界面 MainActivity.kt (修复Tab高亮跟随、内置真动态视频预览、去弹窗白角、修复按钮文字截断)
+          # 5. 主界面 MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/MainActivity.kt
           package com.i7ruhua.nuclearwallpaper
 
@@ -570,7 +568,6 @@ jobs:
               private var isSyncingSliders = false
               private var searchSeq = 0
 
-              // 内置 6 款 100% 封面同源、秒开零404的 60fps 动态视频壁纸
               private val builtinDynamicVideos = listOf(
                   OnlineWallpaperItem("赛博流体霓虹矩阵", "builtin_videos/dyn_1.jpg", "builtin_videos/dyn_1.mp4", true, true, "🎬 真·动态视频"),
                   OnlineWallpaperItem("赤红拔刀剑气律动", "builtin_videos/dyn_2.jpg", "builtin_videos/dyn_2.mp4", true, true, "🎬 真·动态视频"),
@@ -860,7 +857,7 @@ jobs:
                   previewCard.addView(resetRow)
                   container.addView(previewCard)
 
-                  // 3. 在线动态视频 & 4K壁纸工坊（修复Tab选中高亮跟随 + 原位加载状态栏 + 100%真动态预览）
+                  // 3. 在线动态视频 & 4K壁纸工坊
                   val webCard = createSectionCard("🌐 动态视频 & 4K壁纸工坊（封面1:1还原 · 点击先弹窗试看）")
 
                   val tagRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(2), 0, dp(8)) }
@@ -931,7 +928,6 @@ jobs:
                   })
                   webCard.addView(searchBtnRow)
 
-                  // 新增：就在卡片区正上方的原位状态栏与加载转圈，点任何按钮立刻有视觉反馈！
                   val statusRow = LinearLayout(this).apply {
                       orientation = LinearLayout.HORIZONTAL
                       gravity = Gravity.CENTER_VERTICAL
@@ -987,12 +983,10 @@ jobs:
                   syncSlidersToCurrentFile()
                   updatePlaylistLabel()
 
-                  // 初始高亮“动态视频库”并展示 100% 封面同源的 6 款内置动态视频
                   highlightChannelTab("__DYNAMIC_VIDEOS__")
                   renderOnlineCards(builtinDynamicVideos)
               }
 
-              // 修复截图1 Bug：点击哪个频道按钮，哪个按钮就立刻变亮青色，绝不卡死在第一个按钮！
               private fun highlightChannelTab(activeKey: String) {
                   tabButtons.forEach { (key, btn) ->
                       val isSelected = key.equals(activeKey, ignoreCase = true)
@@ -1054,7 +1048,6 @@ jobs:
 
               private fun migrateLegacyFilesIfNeed() {
                   if (WallpaperConfig.getPlaylistFiles(this).isEmpty()) {
-                      // 首次安装默认将第 1 款内置 60fps 动态视频壁纸放入轮播池，开箱即享动态效果
                       val initDest = File(playlistDir, "item_builtin_init.mp4")
                       try {
                           assets.open("builtin_videos/dyn_1.mp4").use { inp ->
@@ -1102,7 +1095,6 @@ jobs:
                   prefs.edit().putInt("media_version", prefs.getInt("media_version", 0) + 1).apply()
               }
 
-              // ==================== 卡片列表渲染 + 弹窗预览（彻底去白角、修文字被切） ====================
               private fun renderOnlineCards(items: List<OnlineWallpaperItem>) {
                   onlineGrid.removeAllViews()
                   items.forEach { item ->
@@ -1144,7 +1136,6 @@ jobs:
                       card.setOnClickListener { showInteractivePreviewDialog(item) }
                       onlineGrid.addView(card)
 
-                      // 加载同源封面（内置动态视频直接读提取好的真实首帧JPG，在线图读URL）
                       thread {
                           val bmp = if (item.isBuiltinAsset) {
                               try { assets.open(item.thumbAssetOrUrl).use { BitmapFactory.decodeStream(it) } } catch (_: Exception) { null }
@@ -1198,7 +1189,6 @@ jobs:
                   }
                   previewBox.addView(videoView)
 
-                  // 右上角提供“切换铺满/全显”按钮，解决横屏图在竖屏框里上下黑边看不清细节的问题
                   var isCropPreview = true
                   val scaleToggleBtn = TextView(this).apply {
                       text = "🔍 切换全显/铺满"
@@ -1224,7 +1214,6 @@ jobs:
                   var cachedPreviewFile: File? = null
                   var dialogClosed = false
 
-                  // 修复截图2 Bug：按钮设为单行精简文字 + 充足高度 dp(46)，彻底杜绝文字被切！
                   val btnRow = LinearLayout(this).apply {
                       orientation = LinearLayout.HORIZONTAL
                       setPadding(0, dp(14), 0, 0)
@@ -1272,7 +1261,6 @@ jobs:
                   root.addView(btnRow)
 
                   dialog.setContentView(root)
-                  // 修复截图2 Bug：将 Dialog 底层 Window 设为全透明，彻底消除四个白色直角！
                   dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
                   dialog.window?.setLayout(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT)
                   dialog.setOnDismissListener {
@@ -1349,7 +1337,6 @@ jobs:
                                       thumbImg.visibility = View.GONE
                                       videoView.start()
                                   }
-                                  // P1-6: 补全 VideoView 错误监听
                                   videoView.setOnErrorListener { _, _, _ ->
                                       subStatus.text = "⚠️ 该视频编码不支持直接预览，请换一张"
                                       Toast.makeText(this@MainActivity, "该视频源失效，请换一个", Toast.LENGTH_SHORT).show()
@@ -1386,7 +1373,6 @@ jobs:
                       val results = mutableListOf<OnlineWallpaperItem>()
                       try {
                           val q = URLEncoder.encode(if (query.isEmpty()) "anime" else query, "UTF-8")
-                          // 加入 page 随机或稳定排序，保证不同关键词返回各自专属结果
                           val api = "https://wallhaven.cc/api/v1/search?q=$q&purity=100&sorting=relevance"
                           val conn = (URL(api).openConnection() as HttpURLConnection).apply {
                               connectTimeout = 6000; readTimeout = 6000
@@ -1473,7 +1459,7 @@ jobs:
           }
           EOF
 
-          # 6. 壁纸渲染服务 NuclearWallpaperService.kt (修复 #1黑屏、#2真裁切、#5桌面滑动视差、#13 ReentrantLock、#14 Uniform缓存)
+          # 6. 壁纸渲染服务 NuclearWallpaperService.kt
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/NuclearWallpaperService.kt
           package com.i7ruhua.nuclearwallpaper
 
@@ -1509,7 +1495,7 @@ jobs:
 
                   @Volatile private var targetTiltX = 0f
                   @Volatile private var targetTiltY = 0f
-                  @Volatile private var launcherScrollOffset = 0f // P1-5: 桌面左右滑动偏移量 (-0.5 ~ 0.5)
+                  @Volatile private var launcherScrollOffset = 0f
                   @Volatile private var touchX = 0.5f
                   @Volatile private var touchY = 0.5f
                   @Volatile private var lastTouchTimestamp = -10f
@@ -1545,7 +1531,6 @@ jobs:
                       }
                   }
 
-                  // P1-5: 监听桌面左右翻页滑动，转化为平滑视差位移
                   override fun onOffsetsChanged(
                       xOffset: Float,
                       yOffset: Float,
@@ -1615,7 +1600,6 @@ jobs:
                       private val prefsDirty = AtomicBoolean(true)
                       private val videoFrameAvailable = AtomicBoolean(false)
 
-                      // P2-13: 使用标准 ReentrantLock + Condition 替代 Object.wait/notifyAll
                       private val stateLock = ReentrantLock()
                       private val stateCond = stateLock.newCondition()
 
@@ -1628,7 +1612,6 @@ jobs:
                       private var imageTexId = 0
                       private var videoOesTexId = 0
 
-                      // P2-14: 缓存 Shader Uniform Location，避免每帧重复查询
                       private val imgUniforms = HashMap<String, Int>()
                       private val vidUniforms = HashMap<String, Int>()
                       private var imgPosAttr = 0
@@ -1846,7 +1829,6 @@ jobs:
                               GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
                               GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
                           }
-                          // P0-1: Surface 重建生成新纹理 ID 后，必须强制标记媒体失效以重新上传纹理，彻底根治黑屏！
                           hasValidMedia = false
                           currentFilePath = ""
                           prefsDirty.set(true)
@@ -1884,7 +1866,6 @@ jobs:
                       varying vec2 vUv;
                       void main() { vUv = aPosition * 0.5 + 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
                   """
-                  // P0-2 & P1-5: 真正将 UV 重映射到 [uCrop, 1-uCrop] 实现放大裁边，叠加 uScroll 桌面翻页视差，并在重映射后施加水波纹
                   private const val COMMON_BODY = """
                       vec2 scrUv = vec2(vUv.x, 1.0 - vUv.y);
                       vec2 asp = vec2(uScreenAspect, 1.0);
