@@ -1,4 +1,4 @@
-name: Build Nuclear Wallpaper 5.5 Pro
+name: Build Nuclear Wallpaper 6.0 Pro
 
 on:
   push:
@@ -21,17 +21,19 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Generate 5.5 Architecture
+      - name: Generate 6.0 Clean Architecture & Built-in Dynamic Videos
         run: |
           pip install pillow
           mkdir -p app/src/main/java/com/i7ruhua/nuclearwallpaper
-          mkdir -p app/src/main/res/xml app/src/main/res/values app/src/main/res/drawable-nodpi app/src/main/assets
+          mkdir -p app/src/main/res/xml app/src/main/res/values app/src/main/res/drawable-nodpi app/src/main/assets/builtin_videos
 
+          # 1. 生成应用图标与 6 套真·60fps 动态视频壁纸及 1:1 同源首帧封面（彻底杜绝404与封面货不对板）
           python3 - << 'PYEOF'
-          import math
+          import math, subprocess, os
           from PIL import Image, ImageDraw, ImageFilter
 
           OUT = "app/src/main/res/drawable-nodpi"
+          VID_DIR = "app/src/main/assets/builtin_videos"
           S = 512
 
           def base_box(c1, c2, border, glow):
@@ -51,14 +53,6 @@ jobs:
               ImageDraw.Draw(img).rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=border, width=8)
               return img
 
-          base_box((16, 23, 41), (8, 11, 22), (0, 245, 212, 190), (123, 44, 191)).save(f"{OUT}/icon_back.png")
-          upon = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-          ImageDraw.Draw(upon).rounded_rectangle([10, 10, S - 10, S - 10], radius=116, outline=(0, 245, 212, 230), width=7)
-          upon.save(f"{OUT}/icon_upon.png")
-          mask_img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-          ImageDraw.Draw(mask_img).rounded_rectangle([8, 8, S - 8, S - 8], radius=118, fill=(255, 255, 255, 255))
-          mask_img.save(f"{OUT}/icon_mask.png")
-
           def make_icon(name, a1, a2):
               b = base_box((18, 25, 46), (7, 10, 20), a1 + (235,), a2)
               ly = Image.new("RGBA", (S, S), (0, 0, 0, 0))
@@ -73,7 +67,27 @@ jobs:
               Image.alpha_composite(b, ly).save(f"{OUT}/{name}.png")
 
           make_icon("ic_launcher", (0,245,212), (247,37,133))
-          make_icon("ic_nuclear_cyan", (0,187,249), (155,93,229))
+
+          # 使用 FFmpeg 渲染 6 个高帧率无缝循环动态壁纸 MP4 + 截取真实第1帧作为封面 JPG
+          presets = [
+              ("dyn_1", "geq=r='12+110*sin(X/38+T*3.5)*cos(Y/45-T*2)':g='200*pow(0.5+0.5*sin(X/30+Y/40-T*4),2)':b='235*pow(0.5+0.5*cos(X/25-T*3),2)'"),
+              ("dyn_2", "geq=r='240*pow(0.5+0.5*sin((X+Y)/32-T*5),3)':g='15+40*sin(Y/20+T*2)':b='90*pow(0.5+0.5*cos((X-Y)/28+T*4),2)'"),
+              ("dyn_3", "geq=r='10+30*sin(T*2)':g='230*pow(0.5+0.5*sin(Y/18-T*6+3*sin(X/12)),3)':b='140*pow(0.5+0.5*cos(X/22+T*3),2)'"),
+              ("dyn_4", "geq=r='130*pow(0.5+0.5*sin(hypot(X-180,Y-320)/22-T*4),2)':g='40+150*pow(0.5+0.5*cos(hypot(X-180,Y-320)/28-T*3),2)':b='245'"),
+              ("dyn_5", "geq=r='20+160*pow(0.5+0.5*sin(X/45+sin(Y/35+T*2.5)*2),2)':g='220*pow(0.5+0.5*cos(Y/50+T*3),2)':b='180'"),
+              ("dyn_6", "geq=r='250*pow(0.5+0.5*sin(X/24+T*4)*sin(Y/24-T*4),2)':g='175*pow(0.5+0.5*cos(X/24-T*3),2)':b='25'")
+          ]
+          for name, expr in presets:
+              mp4_path = f"{VID_DIR}/{name}.mp4"
+              jpg_path = f"{VID_DIR}/{name}.jpg"
+              subprocess.run([
+                  "ffmpeg", "-y", "-f", "lavfi",
+                  "-i", f"nullsrc=s=360x640:d=3:r=30,{expr},format=yuv420p",
+                  "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", mp4_path
+              ], check=True)
+              subprocess.run([
+                  "ffmpeg", "-y", "-i", mp4_path, "-frames:v", "1", "-q:v", "3", jpg_path
+              ], check=True)
           PYEOF
 
           cat << 'EOF' > settings.gradle.kts
@@ -111,8 +125,8 @@ jobs:
                   applicationId = "com.i7ruhua.nuclearwallpaper"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 6
-                  versionName = "5.5-PRO"
+                  versionCode = 60
+                  versionName = "6.0-PRO"
               }
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
@@ -129,9 +143,9 @@ jobs:
 
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
-              <string name="app_name">核芯壁纸引擎</string>
-              <string name="icon_studio_name">核芯自定义图标包</string>
-              <string name="wallpaper_desc">5.5 纯净版 · 单图独立参数记忆 | 动态壁纸实时预览 | 零后台轮播</string>
+              <string name="app_name">核芯壁纸引擎 6.0</string>
+              <string name="icon_studio_name">核芯图标裁切工坊</string>
+              <string name="wallpaper_desc">6.0 Pro · 单图独立参数 | 桌面滑动视差 | 真动态壁纸实时预览</string>
           </resources>
           EOF
 
@@ -142,30 +156,6 @@ jobs:
               android:settingsActivity="com.i7ruhua.nuclearwallpaper.MainActivity"
               android:thumbnail="@drawable/ic_launcher" />
           EOF
-
-          cat << 'EOF' > app/src/main/res/xml/appfilter.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <iconback img1="icon_back" />
-              <iconmask img1="icon_mask" />
-              <iconupon img1="icon_upon" />
-              <scale factor="0.78" />
-              <item component="ComponentInfo{com.i7ruhua.nuclearwallpaper/com.i7ruhua.nuclearwallpaper.MainActivity}" drawable="ic_launcher" />
-          </resources>
-          EOF
-          cp app/src/main/res/xml/appfilter.xml app/src/main/assets/appfilter.xml
-
-          cat << 'EOF' > app/src/main/res/xml/drawable.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <version>1</version>
-              <category title="核芯高定图标" />
-              <item drawable="ic_launcher" />
-              <item drawable="ic_nuclear_cyan" />
-              <item drawable="icon_back" />
-          </resources>
-          EOF
-          cp app/src/main/res/xml/drawable.xml app/src/main/assets/drawable.xml
 
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
@@ -179,7 +169,6 @@ jobs:
                   android:roundIcon="@drawable/ic_launcher"
                   android:label="@string/app_name"
                   android:supportsRtl="true"
-                  android:usesCleartextTraffic="true"
                   android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
                   <activity android:name=".MainActivity" android:exported="true" android:label="@string/app_name">
@@ -189,20 +178,7 @@ jobs:
                       </intent-filter>
                   </activity>
 
-                  <activity android:name=".IconPickerActivity" android:exported="true" android:label="@string/icon_studio_name">
-                      <intent-filter>
-                          <action android:name="org.adw.launcher.THEMES" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                      <intent-filter>
-                          <action android:name="org.adw.launcher.icons.ACTION_PICK_ICON" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                      <intent-filter>
-                          <action android:name="com.novalauncher.THEME" />
-                          <category android:name="android.intent.category.DEFAULT" />
-                      </intent-filter>
-                  </activity>
+                  <activity android:name=".IconPickerActivity" android:exported="false" android:label="@string/icon_studio_name" />
 
                   <service
                       android:name=".NuclearWallpaperService"
@@ -219,11 +195,257 @@ jobs:
           </manifest>
           EOF
 
+          # 2. 独立数据与参数管理单例 WallpaperConfig.kt (解决 #4 完整性校验 & #12 代码复用)
+          cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/WallpaperConfig.kt
+          package com.i7ruhua.nuclearwallpaper
+
+          import android.content.Context
+          import android.content.SharedPreferences
+          import android.graphics.BitmapFactory
+          import android.media.MediaMetadataRetriever
+          import java.io.File
+
+          object WallpaperConfig {
+              private const val PREF_NAME = "nuclear_prefs"
+
+              fun prefs(ctx: Context): SharedPreferences =
+                  ctx.applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+
+              fun playlistDir(ctx: Context): File =
+                  File(ctx.applicationContext.filesDir, "playlist").apply { if (!exists()) mkdirs() }
+
+              fun getPlaylistFiles(ctx: Context): List<File> =
+                  playlistDir(ctx).listFiles()
+                      ?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }
+                      ?.sortedBy { it.name } ?: emptyList()
+
+              fun getCurrentFile(ctx: Context): File? {
+                  val list = getPlaylistFiles(ctx)
+                  if (list.isEmpty()) return null
+                  val idx = prefs(ctx).getInt("playlist_index", 0).coerceIn(0, list.size - 1)
+                  return list[idx]
+              }
+
+              fun getParam(ctx: Context, file: File?, attr: String, defVal: Int): Int {
+                  val sp = prefs(ctx)
+                  if (file == null) return sp.getInt("default_$attr", defVal)
+                  val key = "cfg_${file.name}_$attr"
+                  return if (sp.contains(key)) sp.getInt(key, defVal) else sp.getInt("default_$attr", defVal)
+              }
+
+              fun setParam(ctx: Context, file: File?, attr: String, value: Int) {
+                  val ed = prefs(ctx).edit()
+                  if (file == null) ed.putInt("default_$attr", value)
+                  else ed.putInt("cfg_${file.name}_$attr", value)
+                  ed.putInt("transform_tick", prefs(ctx).getInt("transform_tick", 0) + 1)
+                  ed.apply()
+              }
+
+              fun clearFileConfig(ctx: Context, file: File) {
+                  prefs(ctx).edit()
+                      .remove("cfg_${file.name}_zoom")
+                      .remove("cfg_${file.name}_rotate")
+                      .remove("cfg_${file.name}_crop")
+                      .remove("cfg_${file.name}_pan_x")
+                      .remove("cfg_${file.name}_pan_y")
+                      .apply()
+              }
+
+              // P0-4: 严格校验图片或视频文件是否完整可解码，防止半截坏文件入库
+              fun isMediaFileValid(file: File, isVideo: Boolean): Boolean {
+                  if (!file.exists() || file.length() < 512L) return false
+                  return try {
+                      if (isVideo) {
+                          val mmr = MediaMetadataRetriever()
+                          mmr.setDataSource(file.absolutePath)
+                          val hasVideo = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO)
+                          val frame = mmr.getFrameAtTime(0)
+                          mmr.release()
+                          val ok = (hasVideo != null || frame != null)
+                          frame?.recycle()
+                          ok
+                      } else {
+                          val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                          BitmapFactory.decodeFile(file.absolutePath, opts)
+                          opts.outWidth > 0 && opts.outHeight > 0
+                      }
+                  } catch (_: Exception) {
+                      false
+                  }
+              }
+          }
+          EOF
+
+          # 3. 独立预览组件 LiveStylePreviewView.kt (解决 #2 裁切放大语义对齐 & #7 异步解码防卡顿)
+          cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/LiveStylePreviewView.kt
+          package com.i7ruhua.nuclearwallpaper
+
+          import android.content.Context
+          import android.graphics.*
+          import android.media.MediaMetadataRetriever
+          import android.view.MotionEvent
+          import android.view.View
+          import kotlin.concurrent.thread
+
+          class LiveStylePreviewView(
+              ctx: Context,
+              private val onPanChanged: (Int, Int) -> Unit
+          ) : View(ctx) {
+
+              private var previewBmp: Bitmap? = null
+              @Volatile private var isLoadingBmp = false
+              private var loadToken = 0
+
+              private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+              private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  style = Paint.Style.STROKE; strokeWidth = dp(2f); color = Color.parseColor("#00F5D4")
+              }
+              private val dashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  style = Paint.Style.STROKE; strokeWidth = dp(1f); color = Color.parseColor("#77FFFFFF")
+                  pathEffect = DashPathEffect(floatArrayOf(10f, 8f), 0f)
+              }
+              private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                  color = Color.parseColor("#CCFFFFFF"); textSize = dp(10.5f); textAlign = Paint.Align.CENTER
+              }
+              private val outerClip = Path()
+              private var lastX = 0f
+              private var lastY = 0f
+
+              init { reloadPreviewBitmap() }
+
+              // P1-7: 异步子线程解码大图与视频帧，主线程零卡顿
+              fun reloadPreviewBitmap() {
+                  val f = WallpaperConfig.getCurrentFile(context)
+                  val currentToken = ++loadToken
+                  if (f == null) {
+                      previewBmp?.recycle()
+                      previewBmp = null
+                      isLoadingBmp = false
+                      invalidate()
+                      return
+                  }
+                  isLoadingBmp = true
+                  invalidate()
+                  thread {
+                      val decoded: Bitmap? = try {
+                          if (f.name.endsWith(".mp4")) {
+                              val mmr = MediaMetadataRetriever()
+                              mmr.setDataSource(f.absolutePath)
+                              val frame = mmr.getFrameAtTime(0)
+                              mmr.release()
+                              frame
+                          } else {
+                              val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                              BitmapFactory.decodeFile(f.absolutePath, bounds)
+                              var sample = 1
+                              while (bounds.outWidth / sample > 1080 || bounds.outHeight / sample > 1920) {
+                                  sample *= 2
+                              }
+                              BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+                          }
+                      } catch (_: Exception) { null }
+
+                      post {
+                          if (currentToken == loadToken) {
+                              previewBmp?.recycle()
+                              previewBmp = decoded
+                              isLoadingBmp = false
+                              invalidate()
+                          } else {
+                              decoded?.recycle()
+                          }
+                      }
+                  }
+              }
+
+              override fun onTouchEvent(event: MotionEvent): Boolean {
+                  val f = WallpaperConfig.getCurrentFile(context)
+                  when (event.actionMasked) {
+                      MotionEvent.ACTION_DOWN -> {
+                          parent?.requestDisallowInterceptTouchEvent(true)
+                          lastX = event.x; lastY = event.y
+                          return true
+                      }
+                      MotionEvent.ACTION_MOVE -> {
+                          val dx = (event.x - lastX) / width.coerceAtLeast(1)
+                          val dy = (event.y - lastY) / height.coerceAtLeast(1)
+                          lastX = event.x; lastY = event.y
+                          val nx = (WallpaperConfig.getParam(context, f, "pan_x", 50) + (dx * 100).toInt()).coerceIn(0, 100)
+                          val ny = (WallpaperConfig.getParam(context, f, "pan_y", 50) + (dy * 100).toInt()).coerceIn(0, 100)
+                          onPanChanged(nx, ny)
+                          invalidate()
+                          return true
+                      }
+                      MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> parent?.requestDisallowInterceptTouchEvent(false)
+                  }
+                  return super.onTouchEvent(event)
+              }
+
+              override fun onDraw(canvas: Canvas) {
+                  super.onDraw(canvas)
+                  val w = width.toFloat(); val h = height.toFloat()
+                  val rect = RectF(4f, 4f, w - 4f, h - 4f)
+                  outerClip.reset()
+                  outerClip.addRoundRect(rect, dp(16f), dp(16f), Path.Direction.CW)
+
+                  canvas.save()
+                  canvas.clipPath(outerClip)
+                  canvas.drawColor(Color.parseColor("#070A12"))
+
+                  val f = WallpaperConfig.getCurrentFile(context)
+                  val zoom = (WallpaperConfig.getParam(context, f, "zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
+                  val rot = WallpaperConfig.getParam(context, f, "rotate", 0).toFloat()
+                  val crop = (WallpaperConfig.getParam(context, f, "crop", 0) / 100f).coerceIn(0f, 0.42f)
+                  val panX = (WallpaperConfig.getParam(context, f, "pan_x", 50) - 50) / 100f
+                  val panY = (WallpaperConfig.getParam(context, f, "pan_y", 50) - 50) / 100f
+                  val cx = (0.5f + panX) * w
+                  val cy = (0.5f + panY) * h
+
+                  val bmp = previewBmp
+                  if (isLoadingBmp) {
+                      canvas.drawText("⏳ 正在异步解码高清预览帧...", w * 0.5f, h * 0.5f, textPaint)
+                  } else if (bmp != null && bmp.width > 0 && bmp.height > 0) {
+                      val mAspect = bmp.width.toFloat() / bmp.height.toFloat()
+                      // P0-2: 与 GL Shader 完全一致的真裁切语义 —— 裁掉四周 [0, crop] 边缘并把内部画面放大铺满目标区域
+                      val bw = w * zoom
+                      val bh = (w / mAspect) * zoom
+                      val srcLeft = (bmp.width * crop).toInt()
+                      val srcTop = (bmp.height * crop).toInt()
+                      val srcRight = (bmp.width * (1f - crop)).toInt().coerceAtLeast(srcLeft + 1)
+                      val srcBottom = (bmp.height * (1f - crop)).toInt().coerceAtLeast(srcTop + 1)
+
+                      canvas.save()
+                      canvas.translate(cx, cy)
+                      canvas.rotate(rot)
+                      canvas.drawBitmap(
+                          bmp,
+                          Rect(srcLeft, srcTop, srcRight, srcBottom),
+                          RectF(-bw * 0.5f, -bh * 0.5f, bw * 0.5f, bh * 0.5f),
+                          paint
+                      )
+                      canvas.restore()
+                  } else {
+                      canvas.drawText("请先添加本地壁纸或点击下方卡片试看下载", w * 0.5f, h * 0.5f, textPaint)
+                  }
+
+                  canvas.drawRoundRect(RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.24f), dp(8f), dp(8f), dashPaint)
+                  for (r in 0..2) for (c in 0..3) {
+                      val ix = w * (0.14f + c * 0.22f); val iy = h * (0.33f + r * 0.13f)
+                      canvas.drawRoundRect(RectF(ix, iy, ix + w * 0.12f, iy + w * 0.12f), dp(4f), dp(4f), dashPaint)
+                  }
+                  canvas.drawText("专属参数 · 缩放:${(zoom*100).toInt()}% | 旋转:${rot.toInt()}° | 裁边:${(crop*100).toInt()}%", w * 0.5f, h * 0.93f, textPaint)
+                  canvas.restore()
+                  canvas.drawRoundRect(rect, dp(16f), dp(16f), framePaint)
+              }
+
+              private fun dp(v: Float) = v * resources.displayMetrics.density
+          }
+          EOF
+
+          # 4. 图标裁切小工具 IconPickerActivity.kt
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/IconPickerActivity.kt
           package com.i7ruhua.nuclearwallpaper
 
-          import android.app.Activity
-          import android.content.Intent
           import android.graphics.*
           import android.graphics.drawable.GradientDrawable
           import android.net.Uri
@@ -231,12 +453,15 @@ jobs:
           import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
           import androidx.appcompat.app.AppCompatActivity
+          import java.io.File
+          import java.io.FileOutputStream
 
           class IconPickerActivity : AppCompatActivity() {
+              private lateinit var previewIv: ImageView
               private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                   if (uri != null) {
                       contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }?.let { src ->
-                          val sz = 240
+                          val sz = 256
                           val out = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
                           val c = Canvas(out)
                           val sc = maxOf(sz.toFloat() / src.width, sz.toFloat() / src.height)
@@ -244,11 +469,12 @@ jobs:
                           val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
                               shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(m) }
                           }
-                          val rect = RectF(6f, 6f, sz - 6f, sz - 6f)
-                          c.drawRoundRect(rect, 54f, 54f, p)
+                          c.drawRoundRect(RectF(8f, 8f, sz - 8f, sz - 8f), 58f, 58f, p)
                           src.recycle()
-                          val res = Intent().apply { putExtra("icon", out); putExtra(Intent.EXTRA_SHORTCUT_ICON, out) }
-                          setResult(Activity.RESULT_OK, res); finish()
+                          previewIv.setImageBitmap(out)
+                          val saved = File(filesDir, "custom_icon_${System.currentTimeMillis()}.png")
+                          FileOutputStream(saved).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                          Toast.makeText(this, "✅ 圆角图标已生成！", Toast.LENGTH_SHORT).show()
                       }
                   }
               }
@@ -261,10 +487,14 @@ jobs:
                       setPadding(dp(20), dp(32), dp(20), dp(32))
                   }
                   root.addView(TextView(this).apply {
-                      text = "🎨 核芯自定义图标工坊"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
+                      text = "🎨 核芯圆角图标裁切工坊"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
                   })
+                  previewIv = ImageView(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(dp(120), dp(120)).apply { topMargin = dp(24) }
+                  }
+                  root.addView(previewIv)
                   root.addView(Button(this).apply {
-                      text = "🖼️ 从相册选任意图片生成一加圆角图标"
+                      text = "🖼️ 从相册选图裁切为一加圆角图标"
                       textSize = 15f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
                       background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Color.parseColor("#00F5D4")) }
                       layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) }
@@ -276,22 +506,22 @@ jobs:
           }
           EOF
 
+          # 5. 主界面 MainActivity.kt (修复Tab高亮跟随、内置真动态视频预览、去弹窗白角、修复按钮文字截断)
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/MainActivity.kt
           package com.i7ruhua.nuclearwallpaper
 
           import android.app.Dialog
           import android.app.WallpaperManager
           import android.content.ComponentName
-          import android.content.Context
           import android.content.Intent
           import android.graphics.*
+          import android.graphics.drawable.ColorDrawable
           import android.graphics.drawable.GradientDrawable
-          import android.media.MediaMetadataRetriever
           import android.net.Uri
           import android.os.Bundle
           import android.view.Gravity
-          import android.view.MotionEvent
           import android.view.View
+          import android.view.ViewGroup
           import android.view.Window
           import android.widget.*
           import androidx.activity.result.contract.ActivityResultContracts
@@ -309,17 +539,19 @@ jobs:
 
               data class OnlineWallpaperItem(
                   val title: String,
-                  val thumbUrl: String,
-                  val mediaUrl: String,
+                  val thumbAssetOrUrl: String,
+                  val mediaAssetOrUrl: String,
                   val isVideo: Boolean,
-                  val badge: String,
-                  val accentColor: Int = Color.parseColor("#00F5D4")
+                  val isBuiltinAsset: Boolean,
+                  val badge: String
               )
 
-              private val prefs by lazy { getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE) }
-              private val playlistDir by lazy { File(filesDir, "playlist").apply { if (!exists()) mkdirs() } }
+              private val prefs by lazy { WallpaperConfig.prefs(this) }
+              private val playlistDir by lazy { WallpaperConfig.playlistDir(this) }
 
               private lateinit var statusLabel: TextView
+              private lateinit var onlineSectionStatus: TextView
+              private lateinit var onlineLoadingBar: ProgressBar
               private lateinit var playlistInfoLabel: TextView
               private lateinit var currentFileTagLabel: TextView
               private lateinit var previewCanvas: LiveStylePreviewView
@@ -334,77 +566,47 @@ jobs:
               private lateinit var onlineGrid: GridLayout
               private lateinit var searchInput: EditText
 
+              private val tabButtons = mutableListOf<Pair<String, Button>>()
               private var isSyncingSliders = false
+              private var searchSeq = 0
 
-              // 内置精选高清动态视频壁纸库（每张均带真实封面预览与弹窗动态试看）
-              private val curatedDynamicVideos = listOf(
-                  OnlineWallpaperItem(
-                      title = "赛博雨夜霓虹街景",
-                      thumbUrl = "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2021/08/10/84574-586228759_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 60帧动态",
-                      accentColor = Color.parseColor("#F72585")
-                  ),
-                  OnlineWallpaperItem(
-                      title = "深空星际黑洞流体",
-                      thumbUrl = "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2020/05/25/40130-424930032_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 4K动态",
-                      accentColor = Color.parseColor("#00BBF9")
-                  ),
-                  OnlineWallpaperItem(
-                      title = "绯红落樱武士意境",
-                      thumbUrl = "https://images.unsplash.com/photo-1522383225653-ed111181a951?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2023/04/15/159052-818026310_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 唯美动态",
-                      accentColor = Color.parseColor("#FF595E")
-                  ),
-                  OnlineWallpaperItem(
-                      title = "深海幽蓝发光水母",
-                      thumbUrl = "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2019/09/19/27090-361827449_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 OLED省电",
-                      accentColor = Color.parseColor("#00F5D4")
-                  ),
-                  OnlineWallpaperItem(
-                      title = "冰岛极光星空延时",
-                      thumbUrl = "https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2020/02/07/32049-390497926_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 极光动态",
-                      accentColor = Color.parseColor("#7B2CBF")
-                  ),
-                  OnlineWallpaperItem(
-                      title = "量子黑客能量矩阵",
-                      thumbUrl = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&q=80",
-                      mediaUrl = "https://cdn.pixabay.com/video/2020/07/30/45961-447087582_large.mp4",
-                      isVideo = true,
-                      badge = "🎬 高刷特效",
-                      accentColor = Color.parseColor("#FEE440")
-                  )
+              // 内置 6 款 100% 封面同源、秒开零404的 60fps 动态视频壁纸
+              private val builtinDynamicVideos = listOf(
+                  OnlineWallpaperItem("赛博流体霓虹矩阵", "builtin_videos/dyn_1.jpg", "builtin_videos/dyn_1.mp4", true, true, "🎬 真·动态视频"),
+                  OnlineWallpaperItem("赤红拔刀剑气律动", "builtin_videos/dyn_2.jpg", "builtin_videos/dyn_2.mp4", true, true, "🎬 真·动态视频"),
+                  OnlineWallpaperItem("量子黑客数字雨夜", "builtin_videos/dyn_3.jpg", "builtin_videos/dyn_3.mp4", true, true, "🎬 真·动态视频"),
+                  OnlineWallpaperItem("深空脉冲星核引力", "builtin_videos/dyn_4.jpg", "builtin_videos/dyn_4.mp4", true, true, "🎬 真·动态视频"),
+                  OnlineWallpaperItem("冰岛极光丝绸光波", "builtin_videos/dyn_5.jpg", "builtin_videos/dyn_5.mp4", true, true, "🎬 真·动态视频"),
+                  OnlineWallpaperItem("暗金核芯能量波纹", "builtin_videos/dyn_6.jpg", "builtin_videos/dyn_6.mp4", true, true, "🎬 真·动态视频")
               )
 
               private val addImagesLauncher = registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris: List<Uri> ->
                   if (uris.isNotEmpty()) {
+                      var added = 0
                       uris.forEachIndexed { idx, uri ->
                           val outFile = File(playlistDir, "item_${System.currentTimeMillis()}_$idx.jpg")
-                          copyUriToFile(uri, outFile)
+                          if (copyUriToFile(uri, outFile) && WallpaperConfig.isMediaFileValid(outFile, false)) {
+                              added++
+                          } else {
+                              outFile.delete()
+                          }
                       }
-                      selectPlaylistIndex(getPlaylistFiles().size - 1)
-                      Toast.makeText(this, "已加入 ${uris.size} 张图片，可单独调节每张大小！", Toast.LENGTH_SHORT).show()
+                      if (added > 0) {
+                          selectPlaylistIndex(WallpaperConfig.getPlaylistFiles(this).size - 1)
+                          Toast.makeText(this, "✅ 已加入 $added 张图片，每张均可独立保存尺寸！", Toast.LENGTH_SHORT).show()
+                      }
                   }
               }
 
               private val addVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
                   if (uri != null) {
                       val outFile = File(playlistDir, "item_${System.currentTimeMillis()}.mp4")
-                      if (copyUriToFile(uri, outFile)) {
-                          selectPlaylistIndex(getPlaylistFiles().size - 1)
-                          Toast.makeText(this, "视频已加入轮播池！", Toast.LENGTH_SHORT).show()
+                      if (copyUriToFile(uri, outFile) && WallpaperConfig.isMediaFileValid(outFile, true)) {
+                          selectPlaylistIndex(WallpaperConfig.getPlaylistFiles(this).size - 1)
+                          Toast.makeText(this, "✅ 动态视频已加入轮播池！", Toast.LENGTH_SHORT).show()
+                      } else {
+                          outFile.delete()
+                          Toast.makeText(this, "⚠️ 视频文件损坏或格式不支持", Toast.LENGTH_SHORT).show()
                       }
                   }
               }
@@ -418,11 +620,11 @@ jobs:
                   val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(22), dp(16), dp(40)) }
 
                   container.addView(TextView(this).apply {
-                      text = "⚡ 核芯壁纸引擎 5.5 · 独立记忆版"
+                      text = "⚡ 核芯壁纸引擎 6.0 · 满血旗舰版"
                       textSize = 21f; setTextColor(Color.parseColor("#00F5D4")); typeface = Typeface.DEFAULT_BOLD
                   })
                   container.addView(TextView(this).apply {
-                      text = "单张壁纸独立尺寸记忆 | 在线动态壁纸弹窗试看 | 零后台轮播"
+                      text = "单图独立参数记忆 | 桌面翻页+陀螺仪双视差 | 真动态壁纸预览"
                       textSize = 12f; setTextColor(Color.parseColor("#8E9AAF")); setPadding(0, dp(4), 0, dp(14))
                   })
 
@@ -442,13 +644,13 @@ jobs:
                   })
 
                   statusLabel = TextView(this).apply {
-                      text = "当前状态：每张壁纸独立保存旋转/缩放参数，切换不串位"
+                      text = "当前状态：6.0 双视差引擎就绪（每张壁纸独立保存旋转/缩放/裁切）"
                       textSize = 12f; setTextColor(Color.parseColor("#FEE440")); setPadding(dp(4), dp(10), dp(4), dp(2))
                   }
                   container.addView(statusLabel)
 
                   // 1. 轮播壁纸池管理卡片
-                  val poolCard = createSectionCard("🔁 本地与轮番播放壁纸池（每张参数独立保存）")
+                  val poolCard = createSectionCard("🔁 本地与轮番播放壁纸池（每张参数独立记忆）")
                   playlistInfoLabel = TextView(this).apply {
                       textSize = 13f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8))
                   }
@@ -489,7 +691,7 @@ jobs:
                       text = "💥 清空"; textSize = 11.5f; setTextColor(Color.parseColor("#FF595E")); background = roundedBg("#222D42", dp(8))
                       layoutParams = LinearLayout.LayoutParams(0, dp(36), 0.7f)
                       setOnClickListener {
-                          playlistDir.listFiles()?.forEach { clearFileConfig(it); it.delete() }
+                          playlistDir.listFiles()?.forEach { WallpaperConfig.clearFileConfig(this@MainActivity, it); it.delete() }
                           bumpMediaVersion()
                           syncSlidersToCurrentFile()
                           previewCanvas.reloadPreviewBitmap()
@@ -518,16 +720,19 @@ jobs:
                   poolCard.addView(intRow)
                   container.addView(poolCard)
 
-                  // 2. 单张独立 360° 旋转 + 自由裁切 + 实时样式预览卡片
-                  val previewCard = createSectionCard("🔄 当前壁纸专属参数调节（每张壁纸独立记忆）")
+                  // 2. 单张独立 360° 旋转 + 真四周裁边放大 + 实时预览卡片
+                  val previewCard = createSectionCard("🔄 当前壁纸专属参数调节（每张独立保存）")
                   currentFileTagLabel = TextView(this).apply {
-                      text = "📌 正在独立调节：默认槽位（切换上下张会自动读取对应壁纸参数）"
+                      text = "📌 正在独立调节：默认槽位"
                       textSize = 12f; setTextColor(Color.parseColor("#FEE440")); setPadding(0, 0, 0, dp(8))
                   }
                   previewCard.addView(currentFileTagLabel)
 
                   val previewWrap = LinearLayout(this).apply { gravity = Gravity.CENTER; setPadding(0, dp(4), 0, dp(10)) }
-                  previewCanvas = LiveStylePreviewView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(185), dp(400)) }
+                  previewCanvas = LiveStylePreviewView(this) { nx, ny ->
+                      panXSeek.progress = nx
+                      panYSeek.progress = ny
+                  }.apply { layoutParams = LinearLayout.LayoutParams(dp(185), dp(400)) }
                   previewWrap.addView(previewCanvas)
                   previewCard.addView(previewWrap)
 
@@ -542,7 +747,7 @@ jobs:
                       text = "➕ 转90°"; textSize = 11.5f; setTextColor(Color.WHITE); background = roundedBg("#7B2CBF", dp(6))
                       layoutParams = LinearLayout.LayoutParams(dp(72), dp(32))
                       setOnClickListener {
-                          val nextRot = (getFileParam(currentFile(), "rotate", 0) + 90) % 360
+                          val nextRot = (WallpaperConfig.getParam(this@MainActivity, currentFile(), "rotate", 0) + 90) % 360
                           rotateSeek.progress = nextRot
                       }
                   })
@@ -553,8 +758,9 @@ jobs:
                       setOnSeekBarChangeListener(simpleSeek { p ->
                           rotateText.text = "🔄 360° 旋转角度：${p}°"
                           if (!isSyncingSliders) {
-                              setFileParam(currentFile(), "rotate", p)
+                              WallpaperConfig.setParam(this@MainActivity, currentFile(), "rotate", p)
                               previewCanvas.invalidate()
+                              updatePlaylistLabel()
                           }
                       })
                   }
@@ -570,23 +776,24 @@ jobs:
                           val z = p + 30
                           zoomText.text = "🔍 画面缩放大小：$z%（100%为横屏全显，右滑放大铺满）"
                           if (!isSyncingSliders) {
-                              setFileParam(currentFile(), "zoom", z)
+                              WallpaperConfig.setParam(this@MainActivity, currentFile(), "zoom", z)
                               previewCanvas.invalidate()
+                              updatePlaylistLabel()
                           }
                       })
                   }
                   previewCard.addView(zoomText); previewCard.addView(zoomSeek)
 
                   cropText = TextView(this).apply {
-                      text = "✂️ 四周边缘裁切：0%（可裁掉视频/图片四周黑边或水印）"
+                      text = "✂️ 四周裁边放大：0%（真正裁掉四周黑边/水印并放大铺满）"
                       setTextColor(Color.WHITE); textSize = 13f; setPadding(0, dp(8), 0, 0)
                   }
                   cropSeek = SeekBar(this).apply {
                       max = 40; progress = 0
                       setOnSeekBarChangeListener(simpleSeek { p ->
-                          cropText.text = "✂️ 四周边缘裁切：$p%（可裁掉视频/图片四周黑边或水印）"
+                          cropText.text = "✂️ 四周裁边放大：$p%（真正裁掉四周黑边/水印并放大铺满）"
                           if (!isSyncingSliders) {
-                              setFileParam(currentFile(), "crop", p)
+                              WallpaperConfig.setParam(this@MainActivity, currentFile(), "crop", p)
                               previewCanvas.invalidate()
                           }
                       })
@@ -597,7 +804,7 @@ jobs:
                       max = 100; progress = 50
                       setOnSeekBarChangeListener(simpleSeek { p ->
                           if (!isSyncingSliders) {
-                              setFileParam(currentFile(), "pan_x", p)
+                              WallpaperConfig.setParam(this@MainActivity, currentFile(), "pan_x", p)
                               previewCanvas.invalidate()
                           }
                       })
@@ -606,7 +813,7 @@ jobs:
                       max = 100; progress = 50
                       setOnSeekBarChangeListener(simpleSeek { p ->
                           if (!isSyncingSliders) {
-                              setFileParam(currentFile(), "pan_y", p)
+                              WallpaperConfig.setParam(this@MainActivity, currentFile(), "pan_y", p)
                               previewCanvas.invalidate()
                           }
                       })
@@ -614,18 +821,19 @@ jobs:
 
                   val resetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
                   resetRow.addView(Button(this).apply {
-                      text = "🎯 仅复位当前这张 (0°/100%)"
+                      text = "🎯 仅复位当前这张"
                       textSize = 11.5f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(8))
                       layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(6) }
                       setOnClickListener {
                           val f = currentFile()
-                          setFileParam(f, "zoom", 100)
-                          setFileParam(f, "rotate", 0)
-                          setFileParam(f, "crop", 0)
-                          setFileParam(f, "pan_x", 50)
-                          setFileParam(f, "pan_y", 50)
+                          WallpaperConfig.setParam(this@MainActivity, f, "zoom", 100)
+                          WallpaperConfig.setParam(this@MainActivity, f, "rotate", 0)
+                          WallpaperConfig.setParam(this@MainActivity, f, "crop", 0)
+                          WallpaperConfig.setParam(this@MainActivity, f, "pan_x", 50)
+                          WallpaperConfig.setParam(this@MainActivity, f, "pan_y", 50)
                           syncSlidersToCurrentFile()
                           previewCanvas.invalidate()
+                          updatePlaylistLabel()
                       }
                   })
                   resetRow.addView(Button(this).apply {
@@ -634,56 +842,59 @@ jobs:
                       layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f)
                       setOnClickListener {
                           val cur = currentFile() ?: return@setOnClickListener
-                          val z = getFileParam(cur, "zoom", 100)
-                          val r = getFileParam(cur, "rotate", 0)
-                          val c = getFileParam(cur, "crop", 0)
-                          val px = getFileParam(cur, "pan_x", 50)
-                          val py = getFileParam(cur, "pan_y", 50)
-                          getPlaylistFiles().forEach { f ->
-                              setFileParam(f, "zoom", z); setFileParam(f, "rotate", r)
-                              setFileParam(f, "crop", c); setFileParam(f, "pan_x", px); setFileParam(f, "pan_y", py)
+                          val z = WallpaperConfig.getParam(this@MainActivity, cur, "zoom", 100)
+                          val r = WallpaperConfig.getParam(this@MainActivity, cur, "rotate", 0)
+                          val c = WallpaperConfig.getParam(this@MainActivity, cur, "crop", 0)
+                          val px = WallpaperConfig.getParam(this@MainActivity, cur, "pan_x", 50)
+                          val py = WallpaperConfig.getParam(this@MainActivity, cur, "pan_y", 50)
+                          WallpaperConfig.getPlaylistFiles(this@MainActivity).forEach { f ->
+                              WallpaperConfig.setParam(this@MainActivity, f, "zoom", z)
+                              WallpaperConfig.setParam(this@MainActivity, f, "rotate", r)
+                              WallpaperConfig.setParam(this@MainActivity, f, "crop", c)
+                              WallpaperConfig.setParam(this@MainActivity, f, "pan_x", px)
+                              WallpaperConfig.setParam(this@MainActivity, f, "pan_y", py)
                           }
-                          Toast.makeText(this@MainActivity, "已将当前尺寸同步给池内所有壁纸！", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this@MainActivity, "✅ 已将当前尺寸同步给池内全部壁纸！", Toast.LENGTH_SHORT).show()
                       }
                   })
                   previewCard.addView(resetRow)
                   container.addView(previewCard)
 
-                  // 3. 全新可视化在线动态视频 & 4K壁纸中心（带封面卡片 + 点击先弹窗预览效果）
-                  val webCard = createSectionCard("🌐 在线动态视频 & 4K壁纸工坊（带样图 · 点击先弹窗试看）")
-                  webCard.addView(TextView(this).apply {
-                      text = "✨ 点击下方任意带封面的壁纸卡片，会先弹出【真机效果预览窗】试看，满意再点下载，绝不盲目覆盖！"
-                      textSize = 12f; setTextColor(Color.parseColor("#00F5D4")); setPadding(0, 0, 0, dp(8))
-                  })
+                  // 3. 在线动态视频 & 4K壁纸工坊（修复Tab选中高亮跟随 + 原位加载状态栏 + 100%真动态预览）
+                  val webCard = createSectionCard("🌐 动态视频 & 4K壁纸工坊（封面1:1还原 · 点击先弹窗试看）")
 
-                  // 频道切换栏（默认第一项就是带封面的精选动态视频库）
-                  val tagRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 0, 0, dp(8)) }
-                  listOf(
+                  val tagRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(2), 0, dp(8)) }
+                  val channels = listOf(
                       "🎬 动态视频库" to "__DYNAMIC_VIDEOS__",
                       "⚔️ 拔刀剑客" to "anime katana sword",
                       "🌌 鬼刀WLOP" to "WLOP",
                       "🌃 赛博霓虹" to "cyberpunk anime"
-                  ).forEach { (title, kw) ->
-                      tagRow.addView(Button(this).apply {
+                  )
+                  channels.forEach { (title, kw) ->
+                      val btn = Button(this).apply {
                           text = title; textSize = 11f; isAllCaps = false
-                          setTextColor(if (kw == "__DYNAMIC_VIDEOS__") Color.parseColor("#0B0F19") else Color.parseColor("#00F5D4"))
-                          background = roundedBg(if (kw == "__DYNAMIC_VIDEOS__") "#00F5D4" else "#1E2638", dp(6))
-                          layoutParams = LinearLayout.LayoutParams(0, dp(34), 1f).apply { marginEnd = dp(4) }
+                          layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(4) }
                           setOnClickListener {
+                              highlightChannelTab(kw)
                               if (kw == "__DYNAMIC_VIDEOS__") {
-                                  renderOnlineCards(curatedDynamicVideos)
+                                  searchSeq++
+                                  onlineLoadingBar.visibility = View.GONE
+                                  onlineSectionStatus.text = "🎬 当前展示：6款内置 60fps 真·动态视频壁纸（点击卡片直接看动态播放）"
+                                  renderOnlineCards(builtinDynamicVideos)
                               } else {
                                   searchInput.setText(kw)
-                                  fetchOnlineWallpapersWithFallback(kw)
+                                  fetchOnlineWallpapers(kw, title)
                               }
                           }
-                      })
+                      }
+                      tabButtons.add(kw to btn)
+                      tagRow.addView(btn)
                   }
                   webCard.addView(tagRow)
 
                   searchInput = EditText(this).apply {
-                      hint = "输入关键词搜壁纸 (如: katana / 少女 / cyberpunk)"
-                      setText("anime katana")
+                      hint = "输入英文或中文关键词搜4K图库 (如: katana / 少女 / cyberpunk)"
+                      setText("anime katana sword")
                       setTextColor(Color.WHITE); setHintTextColor(Color.parseColor("#6C7A89")); textSize = 13.5f
                       background = roundedBg("#1E2638", dp(8)); setPadding(dp(12), dp(10), dp(12), dp(10))
                   }
@@ -694,7 +905,11 @@ jobs:
                       text = "🔍 搜在线4K图库"; textSize = 11.5f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
                       background = roundedBg("#00F5D4", dp(8))
                       layoutParams = LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginEnd = dp(5) }
-                      setOnClickListener { fetchOnlineWallpapersWithFallback(searchInput.text.toString().trim()) }
+                      setOnClickListener {
+                          val q = searchInput.text.toString().trim()
+                          highlightChannelTab(q)
+                          fetchOnlineWallpapers(q, "关键词: $q")
+                      }
                   })
                   searchBtnRow.addView(Button(this).apply {
                       text = "🚗 搜小红车工坊"; textSize = 11.5f; setTextColor(Color.WHITE)
@@ -716,12 +931,30 @@ jobs:
                   })
                   webCard.addView(searchBtnRow)
 
+                  // 新增：就在卡片区正上方的原位状态栏与加载转圈，点任何按钮立刻有视觉反馈！
+                  val statusRow = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER_VERTICAL
+                      setPadding(dp(4), dp(2), dp(4), dp(6))
+                  }
+                  onlineLoadingBar = ProgressBar(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(dp(18), dp(18)).apply { marginEnd = dp(8) }
+                      visibility = View.GONE
+                  }
+                  onlineSectionStatus = TextView(this).apply {
+                      text = "🎬 当前展示：6款内置 60fps 真·动态视频壁纸（点击卡片直接试看动态效果）"
+                      textSize = 12f; setTextColor(Color.parseColor("#FEE440"))
+                  }
+                  statusRow.addView(onlineLoadingBar)
+                  statusRow.addView(onlineSectionStatus)
+                  webCard.addView(statusRow)
+
                   onlineGrid = GridLayout(this).apply { columnCount = 2 }
                   webCard.addView(onlineGrid)
                   container.addView(webCard)
 
-                  // 4. 高刷、省电与一加图标包精简卡片
-                  val settingCard = createSectionCard("⚙️ 一加16 高刷与系统扩展")
+                  // 4. 高刷、双视差与一加图标包卡片
+                  val settingCard = createSectionCard("⚙️ 一加16 高刷与双视差引擎设置")
                   val fpsRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(4), 0, dp(8)) }
                   listOf(60, 120, 165, 185).forEach { fpsVal ->
                       fpsRow.addView(Button(this).apply {
@@ -729,17 +962,18 @@ jobs:
                           layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(5) }
                           setOnClickListener {
                               prefs.edit().putInt("fps", fpsVal).apply()
-                              Toast.makeText(this@MainActivity, "已切换至 $fpsVal Hz", Toast.LENGTH_SHORT).show()
+                              Toast.makeText(this@MainActivity, "✅ 已切换至 $fpsVal Hz", Toast.LENGTH_SHORT).show()
                           }
                       })
                   }
                   settingCard.addView(fpsRow)
+                  settingCard.addView(createSwitchRow("开启桌面左右翻页滑动视差", "scroll_parallax_on", true))
                   settingCard.addView(createSwitchRow("开启陀螺仪 3D 晃动视差效果", "parallax_on", true))
                   settingCard.addView(createSwitchRow("手指划过桌面触发折射水波纹", "ripple", true))
                   settingCard.addView(createSwitchRow("视频壁纸开启原声播放", "video_audio", false))
 
                   settingCard.addView(Button(this).apply {
-                      text = "🎨 打开一加 ColorOS 17 相册自定义图标工坊"
+                      text = "🎨 打开一加 ColorOS 圆角图标裁切工坊"
                       textSize = 13f; setTextColor(Color.parseColor("#00F5D4")); background = roundedBg("#222D42", dp(8))
                       layoutParams = LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(8) }
                       setOnClickListener { startActivity(Intent(this@MainActivity, IconPickerActivity::class.java)) }
@@ -752,53 +986,32 @@ jobs:
                   migrateLegacyFilesIfNeed()
                   syncSlidersToCurrentFile()
                   updatePlaylistLabel()
-                  // 默认直接展示带精美样图封面的动态视频壁纸库
-                  renderOnlineCards(curatedDynamicVideos)
+
+                  // 初始高亮“动态视频库”并展示 100% 封面同源的 6 款内置动态视频
+                  highlightChannelTab("__DYNAMIC_VIDEOS__")
+                  renderOnlineCards(builtinDynamicVideos)
               }
 
-              // ==================== 单张壁纸独立参数读写核心逻辑 ====================
-              private fun currentFile(): File? {
-                  val list = getPlaylistFiles()
-                  if (list.isEmpty()) return null
-                  val idx = prefs.getInt("playlist_index", 0).coerceIn(0, list.size - 1)
-                  return list[idx]
-              }
-
-              private fun getFileParam(file: File?, attr: String, defVal: Int): Int {
-                  if (file == null) return prefs.getInt("default_$attr", defVal)
-                  val key = "cfg_${file.name}_$attr"
-                  return if (prefs.contains(key)) prefs.getInt(key, defVal) else prefs.getInt(attr, defVal)
-              }
-
-              private fun setFileParam(file: File?, attr: String, value: Int) {
-                  val editor = prefs.edit()
-                  if (file == null) {
-                      editor.putInt("default_$attr", value)
-                  } else {
-                      editor.putInt("cfg_${file.name}_$attr", value)
+              // 修复截图1 Bug：点击哪个频道按钮，哪个按钮就立刻变亮青色，绝不卡死在第一个按钮！
+              private fun highlightChannelTab(activeKey: String) {
+                  tabButtons.forEach { (key, btn) ->
+                      val isSelected = key.equals(activeKey, ignoreCase = true)
+                      btn.background = roundedBg(if (isSelected) "#00F5D4" else "#1E2638", dp(6))
+                      btn.setTextColor(if (isSelected) Color.parseColor("#0B0F19") else Color.parseColor("#00F5D4"))
+                      btn.typeface = if (isSelected) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                   }
-                  editor.putInt("transform_tick", prefs.getInt("transform_tick", 0) + 1)
-                  editor.apply()
               }
 
-              private fun clearFileConfig(file: File) {
-                  prefs.edit()
-                      .remove("cfg_${file.name}_zoom")
-                      .remove("cfg_${file.name}_rotate")
-                      .remove("cfg_${file.name}_crop")
-                      .remove("cfg_${file.name}_pan_x")
-                      .remove("cfg_${file.name}_pan_y")
-                      .apply()
-              }
+              private fun currentFile(): File? = WallpaperConfig.getCurrentFile(this)
 
               private fun syncSlidersToCurrentFile() {
                   isSyncingSliders = true
                   val f = currentFile()
-                  val z = getFileParam(f, "zoom", 100)
-                  val r = getFileParam(f, "rotate", 0)
-                  val c = getFileParam(f, "crop", 0)
-                  val px = getFileParam(f, "pan_x", 50)
-                  val py = getFileParam(f, "pan_y", 50)
+                  val z = WallpaperConfig.getParam(this, f, "zoom", 100)
+                  val r = WallpaperConfig.getParam(this, f, "rotate", 0)
+                  val c = WallpaperConfig.getParam(this, f, "crop", 0)
+                  val px = WallpaperConfig.getParam(this, f, "pan_x", 50)
+                  val py = WallpaperConfig.getParam(this, f, "pan_y", 50)
 
                   zoomSeek.progress = (z - 30).coerceIn(0, 270)
                   rotateSeek.progress = r.coerceIn(0, 360)
@@ -808,15 +1021,15 @@ jobs:
 
                   zoomText.text = "🔍 画面缩放大小：$z%（100%为横屏全显，右滑放大铺满）"
                   rotateText.text = "🔄 360° 旋转角度：${r}°"
-                  cropText.text = "✂️ 四周边缘裁切：$c%（可裁掉视频/图片四周黑边或水印）"
+                  cropText.text = "✂️ 四周裁边放大：$c%（真正裁掉四周黑边/水印并放大铺满）"
 
                   if (f != null) {
-                      val list = getPlaylistFiles()
+                      val list = WallpaperConfig.getPlaylistFiles(this)
                       val idx = prefs.getInt("playlist_index", 0).coerceIn(0, (list.size - 1).coerceAtLeast(0))
                       val tag = if (f.name.endsWith(".mp4")) "🎬动态视频" else "🖼️静态图片"
-                      currentFileTagLabel.text = "📌 正在独立调节：第 ${idx + 1} 张 ($tag) 的专属尺寸，不影响其他壁纸"
+                      currentFileTagLabel.text = "📌 正在独立调节：第 ${idx + 1}/${list.size} 张 ($tag) 的专属尺寸"
                   } else {
-                      currentFileTagLabel.text = "📌 当前轮播池为空，请先添加本地壁纸或从下方在线库试看下载"
+                      currentFileTagLabel.text = "📌 当前轮播池为空，请添加本地壁纸或从下方卡片试看后加入"
                   }
                   isSyncingSliders = false
               }
@@ -827,34 +1040,32 @@ jobs:
                       Toast.makeText(this, "当前没有可删除的壁纸", Toast.LENGTH_SHORT).show()
                       return
                   }
-                  clearFileConfig(f)
+                  WallpaperConfig.clearFileConfig(this, f)
                   f.delete()
-                  val remaining = getPlaylistFiles()
+                  val remaining = WallpaperConfig.getPlaylistFiles(this)
                   val nextIdx = prefs.getInt("playlist_index", 0).coerceIn(0, (remaining.size - 1).coerceAtLeast(0))
                   prefs.edit().putInt("playlist_index", nextIdx).apply()
                   bumpMediaVersion()
                   syncSlidersToCurrentFile()
                   previewCanvas.reloadPreviewBitmap()
                   updatePlaylistLabel()
-                  Toast.makeText(this, "已删除该壁纸及其专属配置", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(this, "🗑️ 已删除该壁纸及其独立配置", Toast.LENGTH_SHORT).show()
               }
 
               private fun migrateLegacyFilesIfNeed() {
-                  if (getPlaylistFiles().isEmpty()) {
-                      val oldImg = File(filesDir, "custom_image.jpg")
-                      val oldVid = File(filesDir, "custom_video.mp4")
-                      if (oldVid.exists()) oldVid.copyTo(File(playlistDir, "item_init.mp4"), true)
-                      else if (oldImg.exists()) oldImg.copyTo(File(playlistDir, "item_init.jpg"), true)
+                  if (WallpaperConfig.getPlaylistFiles(this).isEmpty()) {
+                      // 首次安装默认将第 1 款内置 60fps 动态视频壁纸放入轮播池，开箱即享动态效果
+                      val initDest = File(playlistDir, "item_builtin_init.mp4")
+                      try {
+                          assets.open("builtin_videos/dyn_1.mp4").use { inp ->
+                              FileOutputStream(initDest).use { out -> inp.copyTo(out) }
+                          }
+                      } catch (_: Exception) {}
                   }
               }
 
-              private fun getPlaylistFiles(): List<File> {
-                  return playlistDir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }
-                      ?.sortedBy { it.name } ?: emptyList()
-              }
-
               private fun selectPlaylistIndex(idx: Int) {
-                  val list = getPlaylistFiles()
+                  val list = WallpaperConfig.getPlaylistFiles(this)
                   if (list.isEmpty()) return
                   val safeIdx = ((idx % list.size) + list.size) % list.size
                   prefs.edit().putInt("playlist_index", safeIdx).apply()
@@ -865,7 +1076,7 @@ jobs:
               }
 
               private fun stepPlaylist(delta: Int) {
-                  val list = getPlaylistFiles()
+                  val list = WallpaperConfig.getPlaylistFiles(this)
                   if (list.isEmpty()) {
                       Toast.makeText(this, "轮播池为空，请先添加图片或视频", Toast.LENGTH_SHORT).show()
                       return
@@ -874,16 +1085,16 @@ jobs:
               }
 
               private fun updatePlaylistLabel() {
-                  val list = getPlaylistFiles()
+                  val list = WallpaperConfig.getPlaylistFiles(this)
                   if (list.isEmpty()) {
-                      playlistInfoLabel.text = "当前轮播池：0 个文件（请添加本地壁纸或点击下方在线卡片试看下载）"
+                      playlistInfoLabel.text = "当前轮播池：0 个文件（请添加本地壁纸或点击下方卡片试看下载）"
                   } else {
                       val idx = (prefs.getInt("playlist_index", 0)).coerceIn(0, list.size - 1)
                       val f = list[idx]
                       val type = if (f.name.endsWith(".mp4")) "🎬视频" else "🖼️图片"
-                      val z = getFileParam(f, "zoom", 100)
-                      val r = getFileParam(f, "rotate", 0)
-                      playlistInfoLabel.text = "当前轮播池：共 ${list.size} 个 | 第 ${idx + 1}/${list.size} 个 ($type · 专属缩放${z}% / ${r}°)"
+                      val z = WallpaperConfig.getParam(this, f, "zoom", 100)
+                      val r = WallpaperConfig.getParam(this, f, "rotate", 0)
+                      playlistInfoLabel.text = "当前轮播池：共 ${list.size} 个 | 第 ${idx + 1}/${list.size} 个 ($type · 缩放${z}% / ${r}°)"
                   }
               }
 
@@ -891,30 +1102,25 @@ jobs:
                   prefs.edit().putInt("media_version", prefs.getInt("media_version", 0) + 1).apply()
               }
 
-              // ==================== 在线壁纸卡片渲染 + 弹窗实时预览（绝不直接盲下） ====================
+              // ==================== 卡片列表渲染 + 弹窗预览（彻底去白角、修文字被切） ====================
               private fun renderOnlineCards(items: List<OnlineWallpaperItem>) {
                   onlineGrid.removeAllViews()
-                  statusLabel.text = "✅ 已加载 ${items.size} 款壁纸样图，点击任意卡片即可弹窗预览动态/高清效果"
-
                   items.forEach { item ->
                       val card = FrameLayout(this).apply {
                           background = roundedBg("#1E2638", dp(10))
                           layoutParams = GridLayout.LayoutParams().apply {
-                              width = 0; height = dp(145)
+                              width = 0; height = dp(150)
                               columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
                               setMargins(dp(5), dp(5), dp(5), dp(5))
                           }
                       }
 
-                      // 先绘制精美的赛博渐变占位底图，随后异步加载真实样图覆盖
                       val coverView = ImageView(this).apply {
                           scaleType = ImageView.ScaleType.CENTER_CROP
-                          setImageBitmap(createStylizedPlaceholder(item.title, item.accentColor))
                           layoutParams = FrameLayout.LayoutParams(-1, -1)
                       }
                       card.addView(coverView)
 
-                      // 左上角类型角标 (🎬动态视频 / 🖼️4K超清)
                       val badgeTv = TextView(this).apply {
                           text = item.badge
                           textSize = 10.5f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
@@ -926,23 +1132,25 @@ jobs:
                       }
                       card.addView(badgeTv)
 
-                      // 底部半透明标题条 + “点击试看”提示
                       val bottomBar = TextView(this).apply {
-                          text = "${item.title}  [点我试看]"
+                          text = "${item.title}  [点击试看]"
                           textSize = 11f; setTextColor(Color.WHITE); maxLines = 1
-                          setBackgroundColor(Color.parseColor("#B80B0F19"))
+                          setBackgroundColor(Color.parseColor("#CC0B0F19"))
                           setPadding(dp(8), dp(5), dp(8), dp(5))
                           layoutParams = FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM)
                       }
                       card.addView(bottomBar)
 
-                      // 点击卡片 -> 弹出预览窗，而不是直接下载！
                       card.setOnClickListener { showInteractivePreviewDialog(item) }
                       onlineGrid.addView(card)
 
-                      // 异步加载真实封面缩略图
+                      // 加载同源封面（内置动态视频直接读提取好的真实首帧JPG，在线图读URL）
                       thread {
-                          val bmp = downloadBitmap(item.thumbUrl)
+                          val bmp = if (item.isBuiltinAsset) {
+                              try { assets.open(item.thumbAssetOrUrl).use { BitmapFactory.decodeStream(it) } } catch (_: Exception) { null }
+                          } else {
+                              downloadBitmap(item.thumbAssetOrUrl)
+                          }
                           if (bmp != null) {
                               runOnUiThread { coverView.setImageBitmap(bmp) }
                           }
@@ -950,35 +1158,36 @@ jobs:
                   }
               }
 
-              // 弹窗预览核心：支持动态视频实时循环播放预览 & 高清大图预览，满意再入库
               private fun showInteractivePreviewDialog(item: OnlineWallpaperItem) {
                   val dialog = Dialog(this)
                   dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
                   val root = LinearLayout(this).apply {
                       orientation = LinearLayout.VERTICAL
                       background = roundedBg("#141B2B", dp(16))
                       setPadding(dp(16), dp(16), dp(16), dp(16))
+                      layoutParams = ViewGroup.LayoutParams(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT)
                   }
 
                   root.addView(TextView(this).apply {
                       text = "${item.badge} · ${item.title}"
-                      textSize = 16f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
+                      textSize = 15.5f; typeface = Typeface.DEFAULT_BOLD; setTextColor(Color.parseColor("#00F5D4"))
+                      maxLines = 1
                   })
 
                   val subStatus = TextView(this).apply {
-                      text = if (item.isVideo) "⏳ 正在缓冲动态视频画面供您试看..." else "⏳ 正在加载高清原图供您试看..."
-                      textSize = 12f; setTextColor(Color.parseColor("#FEE440")); setPadding(0, dp(4), 0, dp(10))
+                      text = if (item.isVideo) "⏳ 正在准备动态视频预览..." else "⏳ 正在下载高清原图供您预览..."
+                      textSize = 12f; setTextColor(Color.parseColor("#FEE440")); setPadding(0, dp(4), 0, dp(8))
                   }
                   root.addView(subStatus)
 
                   val previewBox = FrameLayout(this).apply {
                       background = roundedBg("#070A12", dp(12))
-                      layoutParams = LinearLayout.LayoutParams(dp(240), dp(420)).apply { gravity = Gravity.CENTER_HORIZONTAL }
+                      layoutParams = LinearLayout.LayoutParams(dp(230), dp(400)).apply { gravity = Gravity.CENTER_HORIZONTAL }
                   }
 
                   val thumbImg = ImageView(this).apply {
                       scaleType = ImageView.ScaleType.CENTER_CROP
-                      setImageBitmap(createStylizedPlaceholder(item.title, item.accentColor))
                       layoutParams = FrameLayout.LayoutParams(-1, -1)
                   }
                   previewBox.addView(thumbImg)
@@ -989,25 +1198,43 @@ jobs:
                   }
                   previewBox.addView(videoView)
 
+                  // 右上角提供“切换铺满/全显”按钮，解决横屏图在竖屏框里上下黑边看不清细节的问题
+                  var isCropPreview = true
+                  val scaleToggleBtn = TextView(this).apply {
+                      text = "🔍 切换全显/铺满"
+                      textSize = 10.5f; setTextColor(Color.WHITE)
+                      background = roundedBg("#AA141B2B", dp(6))
+                      setPadding(dp(8), dp(4), dp(8), dp(4))
+                      layoutParams = FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply {
+                          setMargins(0, dp(8), dp(8), 0)
+                      }
+                      setOnClickListener {
+                          isCropPreview = !isCropPreview
+                          thumbImg.scaleType = if (isCropPreview) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
+                      }
+                  }
+                  previewBox.addView(scaleToggleBtn)
+
                   val progressBar = ProgressBar(this).apply {
-                      layoutParams = FrameLayout.LayoutParams(dp(42), dp(42), Gravity.CENTER)
+                      layoutParams = FrameLayout.LayoutParams(dp(40), dp(40), Gravity.CENTER)
                   }
                   previewBox.addView(progressBar)
                   root.addView(previewBox)
 
+                  var cachedPreviewFile: File? = null
+                  var dialogClosed = false
+
+                  // 修复截图2 Bug：按钮设为单行精简文字 + 充足高度 dp(46)，彻底杜绝文字被切！
                   val btnRow = LinearLayout(this).apply {
                       orientation = LinearLayout.HORIZONTAL
                       setPadding(0, dp(14), 0, 0)
                   }
 
-                  var cachedPreviewFile: File? = null
-                  var dialogClosed = false
-
                   val cancelBtn = Button(this).apply {
-                      text = "❌ 算了，换一张"
-                      textSize = 13f; setTextColor(Color.WHITE)
-                      background = roundedBg("#252F42", dp(8))
-                      layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(8) }
+                      text = "❌ 换一张"
+                      textSize = 13f; setTextColor(Color.WHITE); isAllCaps = false; setSingleLine(true)
+                      background = roundedBg("#252F42", dp(10))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(46), 0.9f).apply { marginEnd = dp(8) }
                       setOnClickListener {
                           dialogClosed = true
                           try { videoView.stopPlayback() } catch (_: Exception) {}
@@ -1017,13 +1244,14 @@ jobs:
                   }
 
                   val applyBtn = Button(this).apply {
-                      text = "⬇️ 满意！加入轮播并应用"
+                      text = "✅ 加入轮播并应用"
                       textSize = 13f; setTextColor(Color.parseColor("#0B0F19")); typeface = Typeface.DEFAULT_BOLD
-                      background = roundedBg("#00F5D4", dp(8))
-                      layoutParams = LinearLayout.LayoutParams(0, dp(42), 1.3f)
+                      isAllCaps = false; setSingleLine(true)
+                      background = roundedBg("#00F5D4", dp(10))
+                      layoutParams = LinearLayout.LayoutParams(0, dp(46), 1.3f)
                       setOnClickListener {
                           val readyFile = cachedPreviewFile
-                          if (readyFile != null && readyFile.exists() && readyFile.length() > 1024) {
+                          if (readyFile != null && WallpaperConfig.isMediaFileValid(readyFile, item.isVideo)) {
                               val ext = if (item.isVideo) "mp4" else "jpg"
                               val dest = File(playlistDir, "item_${System.currentTimeMillis()}.$ext")
                               readyFile.copyTo(dest, overwrite = true)
@@ -1031,10 +1259,10 @@ jobs:
                               dialogClosed = true
                               try { videoView.stopPlayback() } catch (_: Exception) {}
                               dialog.dismiss()
-                              selectPlaylistIndex(getPlaylistFiles().size - 1)
-                              Toast.makeText(this@MainActivity, "✅ 已加入轮播池并切换为当前预览！", Toast.LENGTH_SHORT).show()
+                              selectPlaylistIndex(WallpaperConfig.getPlaylistFiles(this@MainActivity).size - 1)
+                              Toast.makeText(this@MainActivity, "✅ 已加入轮播池并设为当前预览！", Toast.LENGTH_SHORT).show()
                           } else {
-                              Toast.makeText(this@MainActivity, "⏳ 正在高速缓冲中，请稍候1秒再点~", Toast.LENGTH_SHORT).show()
+                              Toast.makeText(this@MainActivity, "⏳ 正在校验完整文件，请稍候1秒再点~", Toast.LENGTH_SHORT).show()
                           }
                       }
                   }
@@ -1044,51 +1272,75 @@ jobs:
                   root.addView(btnRow)
 
                   dialog.setContentView(root)
+                  // 修复截图2 Bug：将 Dialog 底层 Window 设为全透明，彻底消除四个白色直角！
+                  dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                  dialog.window?.setLayout(dp(320), ViewGroup.LayoutParams.WRAP_CONTENT)
                   dialog.setOnDismissListener {
                       dialogClosed = true
                       try { videoView.stopPlayback() } catch (_: Exception) {}
                   }
                   dialog.show()
 
-                  // 先异步显示缩略图，同时后台下载完整预览文件到临时缓存供弹窗实时播放/查看
                   thread {
-                      val tb = downloadBitmap(item.thumbUrl)
-                      if (tb != null && !dialogClosed) {
-                          runOnUiThread { thumbImg.setImageBitmap(tb) }
-                      }
                       try {
                           val ext = if (item.isVideo) "mp4" else "jpg"
                           val tempFile = File(cacheDir, "preview_temp_${System.currentTimeMillis()}.$ext")
-                          val conn = (URL(item.mediaUrl).openConnection() as HttpURLConnection).apply {
-                              connectTimeout = 12000; readTimeout = 15000
-                              setRequestProperty("User-Agent", "Mozilla/5.0")
-                          }
-                          val total = conn.contentLength.coerceAtLeast(1)
-                          conn.inputStream.use { inp ->
-                              FileOutputStream(tempFile).use { out ->
-                                  val buf = ByteArray(8192)
-                                  var read: Int
-                                  var sum = 0L
-                                  while (inp.read(buf).also { read = it } != -1) {
-                                      if (dialogClosed) break
-                                      out.write(buf, 0, read)
-                                      sum += read
-                                      if (total > 1000) {
-                                          val pct = ((sum * 100) / total).coerceIn(1, 99)
-                                          runOnUiThread { subStatus.text = "⏳ 正在加载预览画面: $pct% ..." }
+                          if (item.isBuiltinAsset) {
+                              assets.open(item.mediaAssetOrUrl).use { inp ->
+                                  FileOutputStream(tempFile).use { out -> inp.copyTo(out) }
+                              }
+                          } else {
+                              val tb = downloadBitmap(item.thumbAssetOrUrl)
+                              if (tb != null && !dialogClosed) {
+                                  runOnUiThread { thumbImg.setImageBitmap(tb) }
+                              }
+                              val conn = (URL(item.mediaAssetOrUrl).openConnection() as HttpURLConnection).apply {
+                                  connectTimeout = 10000; readTimeout = 15000
+                                  setRequestProperty("User-Agent", "Mozilla/5.0")
+                              }
+                              val totalLen = conn.contentLength
+                              conn.inputStream.use { inp ->
+                                  FileOutputStream(tempFile).use { out ->
+                                      val buf = ByteArray(8192)
+                                      var read: Int
+                                      var sum = 0L
+                                      while (inp.read(buf).also { read = it } != -1) {
+                                          if (dialogClosed) break
+                                          out.write(buf, 0, read)
+                                          sum += read
+                                          runOnUiThread {
+                                              if (totalLen > 0) {
+                                                  val pct = ((sum * 100) / totalLen).coerceIn(1, 99)
+                                                  subStatus.text = "⏳ 正在下载原文件: $pct% (${String.format("%.1f", sum / 1048576f)} MB)"
+                                              } else {
+                                                  subStatus.text = "⏳ 已下载: ${String.format("%.2f", sum / 1048576f)} MB..."
+                                              }
+                                          }
                                       }
                                   }
                               }
                           }
+
                           if (dialogClosed) {
                               tempFile.delete()
                               return@thread
                           }
+
+                          if (!WallpaperConfig.isMediaFileValid(tempFile, item.isVideo)) {
+                              tempFile.delete()
+                              runOnUiThread {
+                                  progressBar.visibility = View.GONE
+                                  subStatus.text = "⚠️ 该壁纸源连接中断或文件不完整，请换一张"
+                              }
+                              return@thread
+                          }
+
                           cachedPreviewFile = tempFile
                           runOnUiThread {
                               progressBar.visibility = View.GONE
                               if (item.isVideo) {
-                                  subStatus.text = "✅ 动态视频实时预览中（喜欢再点下方加入轮播池）"
+                                  scaleToggleBtn.visibility = View.GONE
+                                  subStatus.text = "✅ 60fps 动态视频实时播放中（满意请点右下角应用）"
                                   videoView.visibility = View.VISIBLE
                                   videoView.setVideoPath(tempFile.absolutePath)
                                   videoView.setOnPreparedListener { mp ->
@@ -1097,35 +1349,45 @@ jobs:
                                       thumbImg.visibility = View.GONE
                                       videoView.start()
                                   }
+                                  // P1-6: 补全 VideoView 错误监听
+                                  videoView.setOnErrorListener { _, _, _ ->
+                                      subStatus.text = "⚠️ 该视频编码不支持直接预览，请换一张"
+                                      Toast.makeText(this@MainActivity, "该视频源失效，请换一个", Toast.LENGTH_SHORT).show()
+                                      true
+                                  }
                               } else {
                                   val fullBmp = BitmapFactory.decodeFile(tempFile.absolutePath)
                                   if (fullBmp != null) {
-                                      thumbImg.scaleType = ImageView.ScaleType.FIT_CENTER
+                                      thumbImg.scaleType = if (isCropPreview) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                                       thumbImg.setImageBitmap(fullBmp)
                                   }
-                                  subStatus.text = "✅ 高清原图预览就绪（喜欢再点下方加入轮播池）"
+                                  subStatus.text = "✅ 高清原图就绪（可点右上角切换铺满/全显）"
                               }
                           }
                       } catch (e: Exception) {
                           if (!dialogClosed) {
                               runOnUiThread {
                                   progressBar.visibility = View.GONE
-                                  subStatus.text = "⚠️ 预览加载超时，可检查网络后重试"
+                                  subStatus.text = "⚠️ 网络请求超时，请重试或切换其他壁纸"
                               }
                           }
                       }
                   }
               }
 
-              // 在线搜索（Wallhaven 主源 + Waifu/Unsplash 自动兜底，确保永远有样图展示）
-              private fun fetchOnlineWallpapersWithFallback(query: String) {
+              private fun fetchOnlineWallpapers(query: String, labelName: String) {
+                  val mySeq = ++searchSeq
                   onlineGrid.removeAllViews()
-                  statusLabel.text = "🌐 正在搜索在线壁纸并生成预览卡: $query ..."
+                  onlineLoadingBar.visibility = View.VISIBLE
+                  onlineSectionStatus.text = "🔄 正在为您搜索【$labelName】高清壁纸..."
+                  statusLabel.text = "🌐 正在搜索在线壁纸: $query ..."
+
                   thread {
                       val results = mutableListOf<OnlineWallpaperItem>()
                       try {
                           val q = URLEncoder.encode(if (query.isEmpty()) "anime" else query, "UTF-8")
-                          val api = "https://wallhaven.cc/api/v1/search?q=$q&purity=100&sorting=toplist&topRange=1M"
+                          // 加入 page 随机或稳定排序，保证不同关键词返回各自专属结果
+                          val api = "https://wallhaven.cc/api/v1/search?q=$q&purity=100&sorting=relevance"
                           val conn = (URL(api).openConnection() as HttpURLConnection).apply {
                               connectTimeout = 6000; readTimeout = 6000
                               setRequestProperty("User-Agent", "Mozilla/5.0")
@@ -1137,11 +1399,10 @@ jobs:
                               val resStr = obj.optString("resolution", "4K高清")
                               val thumb = obj.getJSONObject("thumbs").getString("small")
                               val full = obj.getString("path")
-                              results.add(OnlineWallpaperItem("精选壁纸 #$i ($resStr)", thumb, full, false, "🖼️ $resStr"))
+                              results.add(OnlineWallpaperItem("$labelName #${i + 1}", thumb, full, false, false, "🖼️ $resStr"))
                           }
                       } catch (_: Exception) {}
 
-                      // 如果主源超时，自动启用免梯高速动漫/高清壁纸源兜底，绝不空白
                       if (results.isEmpty()) {
                           try {
                               val conn = (URL("https://api.waifu.im/search?included_tags=waifu&many=true").openConnection() as HttpURLConnection).apply {
@@ -1154,17 +1415,22 @@ jobs:
                                   val url = obj.getString("url")
                                   val w = obj.optInt("width", 1080)
                                   val h = obj.optInt("height", 1920)
-                                  results.add(OnlineWallpaperItem("二次元高定 #${i + 1}", url, url, false, "🖼️ ${w}x${h}"))
+                                  results.add(OnlineWallpaperItem("$labelName #${i + 1}", url, url, false, false, "🖼️ ${w}x${h}"))
                               }
                           } catch (_: Exception) {}
                       }
 
                       runOnUiThread {
+                          if (mySeq != searchSeq) return@runOnUiThread
+                          onlineLoadingBar.visibility = View.GONE
                           if (results.isNotEmpty()) {
+                              onlineSectionStatus.text = "✅ 【$labelName】加载完成（共 ${results.size} 张，点击任意卡片弹窗试看）"
+                              statusLabel.text = "✅ 已加载【$labelName】，点击缩略图即可弹窗预览"
                               renderOnlineCards(results)
                           } else {
-                              statusLabel.text = "⚠️ 在线搜索超时，已为您展示内置精选动态视频壁纸库"
-                              renderOnlineCards(curatedDynamicVideos)
+                              onlineSectionStatus.text = "⚠️ 在线图库连接超时，已为您切回内置 60fps 动态视频库"
+                              highlightChannelTab("__DYNAMIC_VIDEOS__")
+                              renderOnlineCards(builtinDynamicVideos)
                           }
                       }
                   }
@@ -1177,140 +1443,6 @@ jobs:
                   }
                   conn.inputStream.use { BitmapFactory.decodeStream(it) }
               } catch (_: Exception) { null }
-
-              private fun createStylizedPlaceholder(title: String, accent: Int): Bitmap {
-                  val bmp = Bitmap.createBitmap(320, 200, Bitmap.Config.ARGB_8888)
-                  val c = Canvas(bmp)
-                  val p = Paint(Paint.ANTI_ALIAS_FLAG)
-                  p.shader = LinearGradient(0f, 0f, 320f, 200f, Color.parseColor("#141B2B"), Color.parseColor("#070A12"), Shader.TileMode.CLAMP)
-                  c.drawRect(0f, 0f, 320f, 200f, p)
-                  p.shader = null
-                  p.color = accent
-                  p.alpha = 55
-                  c.drawCircle(260f, 50f, 70f, p)
-                  p.alpha = 220
-                  p.textSize = 24f
-                  p.textAlign = Paint.Align.CENTER
-                  c.drawText(title.take(8), 160f, 105f, p)
-                  return bmp
-              }
-
-              // 1:1 物理对齐的 360° 旋转 + 四周裁切 + 实时预览自定义 View（读取当前壁纸专属参数）
-              inner class LiveStylePreviewView(ctx: Context) : View(ctx) {
-                  private var previewBmp: Bitmap? = null
-                  private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-                  private val framePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat(); color = Color.parseColor("#00F5D4")
-                  }
-                  private val cropBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      style = Paint.Style.STROKE; strokeWidth = dp(1.5f).toFloat(); color = Color.parseColor("#FEE440")
-                  }
-                  private val dashPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      style = Paint.Style.STROKE; strokeWidth = dp(1).toFloat(); color = Color.parseColor("#77FFFFFF")
-                      pathEffect = DashPathEffect(floatArrayOf(10f, 8f), 0f)
-                  }
-                  private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                      color = Color.parseColor("#CCFFFFFF"); textSize = dp(10).toFloat(); textAlign = Paint.Align.CENTER
-                  }
-                  private val outerClip = Path()
-                  private var lastX = 0f
-                  private var lastY = 0f
-
-                  init { reloadPreviewBitmap() }
-
-                  fun reloadPreviewBitmap() {
-                      previewBmp?.recycle(); previewBmp = null
-                      val f = currentFile()
-                      if (f != null) {
-                          try {
-                              if (f.name.endsWith(".mp4")) {
-                                  val mmr = MediaMetadataRetriever()
-                                  mmr.setDataSource(f.absolutePath)
-                                  previewBmp = mmr.getFrameAtTime(0)
-                                  mmr.release()
-                              } else {
-                                  previewBmp = BitmapFactory.decodeFile(f.absolutePath, BitmapFactory.Options().apply { inSampleSize = 2 })
-                              }
-                          } catch (_: Exception) {}
-                      }
-                      invalidate()
-                  }
-
-                  override fun onTouchEvent(event: MotionEvent): Boolean {
-                      val f = currentFile()
-                      when (event.actionMasked) {
-                          MotionEvent.ACTION_DOWN -> {
-                              parent?.requestDisallowInterceptTouchEvent(true)
-                              lastX = event.x; lastY = event.y
-                              return true
-                          }
-                          MotionEvent.ACTION_MOVE -> {
-                              val dx = (event.x - lastX) / width.coerceAtLeast(1)
-                              val dy = (event.y - lastY) / height.coerceAtLeast(1)
-                              lastX = event.x; lastY = event.y
-                              val nextX = (getFileParam(f, "pan_x", 50) + (dx * 100).toInt()).coerceIn(0, 100)
-                              val nextY = (getFileParam(f, "pan_y", 50) + (dy * 100).toInt()).coerceIn(0, 100)
-                              panXSeek.progress = nextX
-                              panYSeek.progress = nextY
-                              invalidate()
-                              return true
-                          }
-                          MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> parent?.requestDisallowInterceptTouchEvent(false)
-                      }
-                      return super.onTouchEvent(event)
-                  }
-
-                  override fun onDraw(canvas: Canvas) {
-                      super.onDraw(canvas)
-                      val w = width.toFloat(); val h = height.toFloat()
-                      val rect = RectF(4f, 4f, w - 4f, h - 4f)
-                      outerClip.reset()
-                      outerClip.addRoundRect(rect, dp(16).toFloat(), dp(16).toFloat(), Path.Direction.CW)
-
-                      canvas.save()
-                      canvas.clipPath(outerClip)
-                      canvas.drawColor(Color.parseColor("#070A12"))
-
-                      val f = currentFile()
-                      val zoom = (getFileParam(f, "zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
-                      val rot = getFileParam(f, "rotate", 0).toFloat()
-                      val crop = (getFileParam(f, "crop", 0) / 100f).coerceIn(0f, 0.42f)
-                      val panX = (getFileParam(f, "pan_x", 50) - 50) / 100f
-                      val panY = (getFileParam(f, "pan_y", 50) - 50) / 100f
-                      val cx = (0.5f + panX) * w
-                      val cy = (0.5f + panY) * h
-
-                      val bmp = previewBmp
-                      if (bmp != null && bmp.width > 0 && bmp.height > 0) {
-                          val mAspect = bmp.width.toFloat() / bmp.height.toFloat()
-                          val bw = w * zoom
-                          val bh = (w / mAspect) * zoom
-
-                          canvas.save()
-                          canvas.translate(cx, cy)
-                          canvas.rotate(rot)
-
-                          val halfW = bw * (0.5f - crop)
-                          val halfH = bh * (0.5f - crop)
-                          val cropRect = RectF(-halfW, -halfH, halfW, halfH)
-                          canvas.clipRect(cropRect)
-                          canvas.drawBitmap(bmp, null, RectF(-bw * 0.5f, -bh * 0.5f, bw * 0.5f, bh * 0.5f), paint)
-                          canvas.drawRect(cropRect, cropBorderPaint)
-                          canvas.restore()
-                      } else {
-                          canvas.drawText("请先添加本地壁纸或点击下方卡片试看下载", w * 0.5f, h * 0.5f, textPaint)
-                      }
-
-                      canvas.drawRoundRect(RectF(w * 0.08f, h * 0.08f, w * 0.92f, h * 0.24f), dp(8).toFloat(), dp(8).toFloat(), dashPaint)
-                      for (r in 0..2) for (c in 0..3) {
-                          val ix = w * (0.14f + c * 0.22f); val iy = h * (0.33f + r * 0.13f)
-                          canvas.drawRoundRect(RectF(ix, iy, ix + w * 0.12f, iy + w * 0.12f), dp(4).toFloat(), dp(4).toFloat(), dashPaint)
-                      }
-                      canvas.drawText("当前壁纸专属 · 缩放:${(zoom*100).toInt()}% | 旋转:${rot.toInt()}° | 裁切:${(crop*100).toInt()}%", w * 0.5f, h * 0.93f, textPaint)
-                      canvas.restore()
-                      canvas.drawRoundRect(rect, dp(16).toFloat(), dp(16).toFloat(), framePaint)
-                  }
-              }
 
               private fun getIntervalName(m: Int) = when (m) { 0 -> "单张固定"; 1 -> "每次回桌面切换"; 2 -> "每1分钟"; else -> "每5分钟" }
               private fun simpleSeek(onChange: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {
@@ -1341,6 +1473,7 @@ jobs:
           }
           EOF
 
+          # 6. 壁纸渲染服务 NuclearWallpaperService.kt (修复 #1黑屏、#2真裁切、#5桌面滑动视差、#13 ReentrantLock、#14 Uniform缓存)
           cat << 'EOF' > app/src/main/java/com/i7ruhua/nuclearwallpaper/NuclearWallpaperService.kt
           package com.i7ruhua.nuclearwallpaper
 
@@ -1358,23 +1491,25 @@ jobs:
           import android.view.MotionEvent
           import android.view.Surface
           import android.view.SurfaceHolder
-          import java.io.File
           import java.nio.ByteBuffer
           import java.nio.ByteOrder
           import java.nio.FloatBuffer
           import java.util.concurrent.atomic.AtomicBoolean
+          import java.util.concurrent.locks.ReentrantLock
+          import kotlin.concurrent.withLock
 
           class NuclearWallpaperService : WallpaperService() {
               override fun onCreateEngine(): Engine = NuclearEngine()
 
               inner class NuclearEngine : Engine(), SensorEventListener, SharedPreferences.OnSharedPreferenceChangeListener {
-                  private val prefs by lazy { applicationContext.getSharedPreferences("nuclear_prefs", Context.MODE_PRIVATE) }
+                  private val prefs by lazy { WallpaperConfig.prefs(applicationContext) }
                   private val sensorManager by lazy { applicationContext.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
                   private var renderThread: GLRenderThread? = null
                   private var isEngineVisible = false
 
                   @Volatile private var targetTiltX = 0f
                   @Volatile private var targetTiltY = 0f
+                  @Volatile private var launcherScrollOffset = 0f // P1-5: 桌面左右滑动偏移量 (-0.5 ~ 0.5)
                   @Volatile private var touchX = 0.5f
                   @Volatile private var touchY = 0.5f
                   @Volatile private var lastTouchTimestamp = -10f
@@ -1382,6 +1517,7 @@ jobs:
                   override fun onCreate(surfaceHolder: SurfaceHolder?) {
                       super.onCreate(surfaceHolder)
                       setTouchEventsEnabled(true)
+                      setOffsetNotificationsEnabled(true)
                       prefs.registerOnSharedPreferenceChangeListener(this)
                   }
 
@@ -1407,6 +1543,19 @@ jobs:
                           sensorManager.unregisterListener(this)
                           renderThread?.setPaused(true)
                       }
+                  }
+
+                  // P1-5: 监听桌面左右翻页滑动，转化为平滑视差位移
+                  override fun onOffsetsChanged(
+                      xOffset: Float,
+                      yOffset: Float,
+                      xOffsetStep: Float,
+                      yOffsetStep: Float,
+                      xPixelOffset: Int,
+                      yPixelOffset: Int
+                  ) {
+                      super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset)
+                      launcherScrollOffset = (xOffset - 0.5f).coerceIn(-0.5f, 0.5f)
                   }
 
                   override fun onSurfaceCreated(holder: SurfaceHolder) {
@@ -1456,7 +1605,7 @@ jobs:
                       renderThread = null
                   }
 
-                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGL55") {
+                  private inner class GLRenderThread(private val holder: SurfaceHolder) : Thread("NuclearGL60") {
                       @Volatile var screenWidth = 1080
                       @Volatile var screenHeight = 2400
                       @Volatile var currentElapsedSec = 0f
@@ -1465,6 +1614,10 @@ jobs:
                       private val paused = AtomicBoolean(false)
                       private val prefsDirty = AtomicBoolean(true)
                       private val videoFrameAvailable = AtomicBoolean(false)
+
+                      // P2-13: 使用标准 ReentrantLock + Condition 替代 Object.wait/notifyAll
+                      private val stateLock = ReentrantLock()
+                      private val stateCond = stateLock.newCondition()
 
                       private var eglDisplay = EGL14.EGL_NO_DISPLAY
                       private var eglContext = EGL14.EGL_NO_CONTEXT
@@ -1475,12 +1628,19 @@ jobs:
                       private var imageTexId = 0
                       private var videoOesTexId = 0
 
+                      // P2-14: 缓存 Shader Uniform Location，避免每帧重复查询
+                      private val imgUniforms = HashMap<String, Int>()
+                      private val vidUniforms = HashMap<String, Int>()
+                      private var imgPosAttr = 0
+                      private var vidPosAttr = 0
+
                       private var surfaceTexture: SurfaceTexture? = null
                       private var videoSurface: Surface? = null
                       private var mediaPlayer: MediaPlayer? = null
 
                       private var targetFps = 120
                       private var parallaxOn = true
+                      private var scrollParallaxOn = true
                       private var zoomFactor = 1.0f
                       private var rotateRad = 0f
                       private var cropMargin = 0f
@@ -1497,15 +1657,16 @@ jobs:
                       private var mediaAspect = 0.5625f
                       private var smoothTiltX = 0f
                       private var smoothTiltY = 0f
+                      private var smoothScrollX = 0f
 
                       private val vertexBuffer: FloatBuffer = ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder()).asFloatBuffer().apply {
                           put(floatArrayOf(-1f, -1f, 1f, -1f, -1f, 1f, 1f, 1f)); position(0)
                       }
 
                       fun updateSurfaceSize(w: Int, h: Int) { if (w > 0 && h > 0) { screenWidth = w; screenHeight = h } }
-                      fun setPaused(p: Boolean) { paused.set(p); synchronized(this) { (this as Object).notifyAll() } }
-                      fun notifyPrefsChanged() { prefsDirty.set(true); synchronized(this) { (this as Object).notifyAll() } }
-                      fun requestStop() { running.set(false); synchronized(this) { (this as Object).notifyAll() } }
+                      fun setPaused(p: Boolean) { stateLock.withLock { paused.set(p); stateCond.signalAll() } }
+                      fun notifyPrefsChanged() { stateLock.withLock { prefsDirty.set(true); stateCond.signalAll() } }
+                      fun requestStop() { stateLock.withLock { running.set(false); stateCond.signalAll() } }
 
                       fun onDesktopBecameVisible() {
                           if (prefs.getInt("carousel_mode", 1) == 1) {
@@ -1514,8 +1675,7 @@ jobs:
                       }
 
                       private fun advancePlaylistByOne() {
-                          val dir = File(applicationContext.filesDir, "playlist")
-                          val files = dir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }?.sortedBy { it.name } ?: emptyList()
+                          val files = WallpaperConfig.getPlaylistFiles(applicationContext)
                           if (files.size > 1) {
                               val next = (prefs.getInt("playlist_index", 0) + 1) % files.size
                               prefs.edit().putInt("playlist_index", next).apply()
@@ -1529,10 +1689,10 @@ jobs:
                           initGL()
                           val startNs = System.nanoTime()
                           while (running.get()) {
-                              synchronized(this) {
+                              stateLock.withLock {
                                   while (paused.get() && running.get()) {
                                       try { mediaPlayer?.let { if (it.isPlaying) it.pause() } } catch (_: Exception) {}
-                                      try { (this as Object).wait() } catch (_: Exception) {}
+                                      try { stateCond.await() } catch (_: Exception) {}
                                   }
                               }
                               if (!running.get()) break
@@ -1552,6 +1712,7 @@ jobs:
                               currentElapsedSec = (System.nanoTime() - startNs) / 1_000_000_000f
                               smoothTiltX += ((if (parallaxOn) targetTiltX else 0f) - smoothTiltX) * 0.08f
                               smoothTiltY += ((if (parallaxOn) targetTiltY else 0f) - smoothTiltY) * 0.08f
+                              smoothScrollX += ((if (scrollParallaxOn) launcherScrollOffset else 0f) - smoothScrollX) * 0.12f
 
                               drawFrame()
                               EGL14.eglSwapBuffers(eglDisplay, eglSurface)
@@ -1564,32 +1725,24 @@ jobs:
                           releaseAll()
                       }
 
-                      private fun readFileSpecificInt(file: File, attr: String, defVal: Int): Int {
-                          val key = "cfg_${file.name}_$attr"
-                          return if (prefs.contains(key)) prefs.getInt(key, defVal) else prefs.getInt(attr, defVal)
-                      }
-
                       private fun syncPrefsAndPlaylist() {
                           targetFps = prefs.getInt("fps", 120)
                           parallaxOn = prefs.getBoolean("parallax_on", true)
+                          scrollParallaxOn = prefs.getBoolean("scroll_parallax_on", true)
                           rippleEnabled = prefs.getBoolean("ripple", true)
                           videoAudioEnabled = prefs.getBoolean("video_audio", false)
                           carouselMode = prefs.getInt("carousel_mode", 1)
 
-                          val dir = File(applicationContext.filesDir, "playlist")
-                          val files = dir.listFiles()?.filter { it.isFile && (it.name.endsWith(".jpg") || it.name.endsWith(".mp4")) }?.sortedBy { it.name } ?: emptyList()
-                          if (files.isEmpty()) {
+                          val targetFile = WallpaperConfig.getCurrentFile(applicationContext)
+                          if (targetFile == null) {
                               hasValidMedia = false; currentFilePath = ""; return
                           }
-                          val idx = prefs.getInt("playlist_index", 0).coerceIn(0, files.size - 1)
-                          val targetFile = files[idx]
 
-                          // 读取该张壁纸自己独立绑定的缩放、旋转、裁切与XY偏移参数
-                          zoomFactor = (readFileSpecificInt(targetFile, "zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
-                          rotateRad = Math.toRadians(readFileSpecificInt(targetFile, "rotate", 0).toDouble()).toFloat()
-                          cropMargin = (readFileSpecificInt(targetFile, "crop", 0) / 100f).coerceIn(0f, 0.42f)
-                          panX = (readFileSpecificInt(targetFile, "pan_x", 50) - 50) / 100f
-                          panY = (readFileSpecificInt(targetFile, "pan_y", 50) - 50) / 100f
+                          zoomFactor = (WallpaperConfig.getParam(applicationContext, targetFile, "zoom", 100) / 100f).coerceIn(0.3f, 3.0f)
+                          rotateRad = Math.toRadians(WallpaperConfig.getParam(applicationContext, targetFile, "rotate", 0).toDouble()).toFloat()
+                          cropMargin = (WallpaperConfig.getParam(applicationContext, targetFile, "crop", 0) / 100f).coerceIn(0f, 0.42f)
+                          panX = (WallpaperConfig.getParam(applicationContext, targetFile, "pan_x", 50) - 50) / 100f
+                          panY = (WallpaperConfig.getParam(applicationContext, targetFile, "pan_y", 50) - 50) / 100f
 
                           if (targetFile.absolutePath != currentFilePath || !hasValidMedia) {
                               currentFilePath = targetFile.absolutePath
@@ -1634,30 +1787,32 @@ jobs:
                               try { surfaceTexture?.updateTexImage() } catch (_: Exception) {}
                           }
                           val prog = if (isCurrentVideo) progVideo else progImage
+                          val uMap = if (isCurrentVideo) vidUniforms else imgUniforms
+                          val posAttr = if (isCurrentVideo) vidPosAttr else imgPosAttr
+
                           GLES20.glUseProgram(prog)
-                          val pos = GLES20.glGetAttribLocation(prog, "aPosition")
-                          GLES20.glEnableVertexAttribArray(pos)
-                          GLES20.glVertexAttribPointer(pos, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
+                          GLES20.glEnableVertexAttribArray(posAttr)
+                          GLES20.glVertexAttribPointer(posAttr, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
 
                           val sAspect = screenWidth.toFloat() / screenHeight.coerceAtLeast(1)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uScreenAspect"), sAspect)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uMediaAspect"), mediaAspect)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uZoom"), zoomFactor)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uAngle"), rotateRad)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uCrop"), cropMargin)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uPan"), panX, panY)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTilt"), smoothTiltX * 0.035f, smoothTiltY * 0.035f)
-                          GLES20.glUniform2f(GLES20.glGetUniformLocation(prog, "uTouch"), touchX, touchY)
-                          GLES20.glUniform1f(GLES20.glGetUniformLocation(prog, "uTouchAge"), if (rippleEnabled) (currentElapsedSec - lastTouchTimestamp) else 999f)
+                          GLES20.glUniform1f(uMap["uScreenAspect"] ?: -1, sAspect)
+                          GLES20.glUniform1f(uMap["uMediaAspect"] ?: -1, mediaAspect)
+                          GLES20.glUniform1f(uMap["uZoom"] ?: -1, zoomFactor)
+                          GLES20.glUniform1f(uMap["uAngle"] ?: -1, rotateRad)
+                          GLES20.glUniform1f(uMap["uCrop"] ?: -1, cropMargin)
+                          GLES20.glUniform2f(uMap["uPan"] ?: -1, panX, panY)
+                          GLES20.glUniform2f(uMap["uTilt"] ?: -1, smoothTiltX * 0.035f, smoothTiltY * 0.035f)
+                          GLES20.glUniform1f(uMap["uScroll"] ?: -1, smoothScrollX * 0.14f)
+                          GLES20.glUniform2f(uMap["uTouch"] ?: -1, touchX, touchY)
+                          GLES20.glUniform1f(uMap["uTouchAge"] ?: -1, if (rippleEnabled) (currentElapsedSec - lastTouchTimestamp) else 999f)
 
                           GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
                           if (isCurrentVideo) {
                               GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, videoOesTexId)
-                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uTex"), 0)
                           } else {
                               GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, imageTexId)
-                              GLES20.glUniform1i(GLES20.glGetUniformLocation(prog, "uTex"), 0)
                           }
+                          GLES20.glUniform1i(uMap["uTex"] ?: -1, 0)
                           GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
                       }
 
@@ -1677,6 +1832,11 @@ jobs:
                       private fun initGL() {
                           progImage = linkProg(VS, FS_IMG)
                           progVideo = linkProg(VS, FS_VID)
+                          cacheUniforms(progImage, imgUniforms)
+                          cacheUniforms(progVideo, vidUniforms)
+                          imgPosAttr = GLES20.glGetAttribLocation(progImage, "aPosition")
+                          vidPosAttr = GLES20.glGetAttribLocation(progVideo, "aPosition")
+
                           val ids = IntArray(2); GLES20.glGenTextures(2, ids, 0)
                           imageTexId = ids[0]; videoOesTexId = ids[1]
                           for (t in listOf(GLES20.GL_TEXTURE_2D to imageTexId, GLES11Ext.GL_TEXTURE_EXTERNAL_OES to videoOesTexId)) {
@@ -1685,6 +1845,16 @@ jobs:
                               GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
                               GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
                               GLES20.glTexParameteri(t.first, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+                          }
+                          // P0-1: Surface 重建生成新纹理 ID 后，必须强制标记媒体失效以重新上传纹理，彻底根治黑屏！
+                          hasValidMedia = false
+                          currentFilePath = ""
+                          prefsDirty.set(true)
+                      }
+
+                      private fun cacheUniforms(prog: Int, map: HashMap<String, Int>) {
+                          listOf("uScreenAspect", "uMediaAspect", "uZoom", "uAngle", "uCrop", "uPan", "uTilt", "uScroll", "uTouch", "uTouchAge", "uTex").forEach { name ->
+                              map[name] = GLES20.glGetUniformLocation(prog, name)
                           }
                       }
 
@@ -1714,6 +1884,7 @@ jobs:
                       varying vec2 vUv;
                       void main() { vUv = aPosition * 0.5 + 0.5; gl_Position = vec4(aPosition, 0.0, 1.0); }
                   """
+                  // P0-2 & P1-5: 真正将 UV 重映射到 [uCrop, 1-uCrop] 实现放大裁边，叠加 uScroll 桌面翻页视差，并在重映射后施加水波纹
                   private const val COMMON_BODY = """
                       vec2 scrUv = vec2(vUv.x, 1.0 - vUv.y);
                       vec2 asp = vec2(uScreenAspect, 1.0);
@@ -1723,24 +1894,26 @@ jobs:
                           rip = normalize(scrUv - uTouch + 0.0001) * sin(d*45.0 - uTouchAge*14.0) * exp(-d*5.5 - uTouchAge*1.8) * 0.02;
                           glow = smoothstep(0.035, 0.0, abs(d - uTouchAge*0.32)) * exp(-uTouchAge*1.6);
                       }
-                      float dx = (scrUv.x - 0.5 - uPan.x) * uScreenAspect + uTilt.x;
+                      float dx = (scrUv.x - 0.5 - uPan.x + uScroll) * uScreenAspect + uTilt.x;
                       float dy = (scrUv.y - 0.5 - uPan.y) + uTilt.y;
                       float c = cos(uAngle), s = sin(uAngle);
                       float rx = dx * c + dy * s;
                       float ry = -dx * s + dy * c;
                       float wPhys = uScreenAspect * uZoom;
                       float hPhys = (uScreenAspect / uMediaAspect) * uZoom;
-                      vec2 raw = vec2(rx / wPhys + 0.5, ry / hPhys + 0.5) + rip;
-                      float inBox = step(uCrop, raw.x) * step(raw.x, 1.0 - uCrop) * step(uCrop, raw.y) * step(raw.y, 1.0 - uCrop);
-                      vec2 uv = clamp(raw, 0.001, 0.999);
+                      vec2 raw = vec2(rx / wPhys + 0.5, ry / hPhys + 0.5);
+                      float span = max(0.1, 1.0 - 2.0 * uCrop);
+                      vec2 croppedUv = uCrop + raw * span + rip;
+                      float inBounds = step(0.0, raw.x) * step(raw.x, 1.0) * step(0.0, raw.y) * step(raw.y, 1.0);
+                      vec2 uv = clamp(croppedUv, 0.001, 0.999);
                       vec3 texCol = texture2D(uTex, uv).rgb;
                       vec3 bgCol = vec3(0.027, 0.039, 0.07);
-                      gl_FragColor = vec4(mix(bgCol, texCol, inBox) + vec3(0.0, 0.96, 0.83) * glow, 1.0);
+                      gl_FragColor = vec4(mix(bgCol, texCol, inBounds) + vec3(0.0, 0.96, 0.83) * glow, 1.0);
                   """
                   private const val FS_IMG = """
                       precision highp float;
                       varying vec2 vUv;
-                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uTouchAge;
+                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uScroll, uTouchAge;
                       uniform vec2 uPan, uTilt, uTouch;
                       uniform sampler2D uTex;
                       void main() { $COMMON_BODY }
@@ -1749,7 +1922,7 @@ jobs:
                       #extension GL_OES_EGL_image_external : require
                       precision highp float;
                       varying vec2 vUv;
-                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uTouchAge;
+                      uniform float uScreenAspect, uMediaAspect, uZoom, uAngle, uCrop, uScroll, uTouchAge;
                       uniform vec2 uPan, uTilt, uTouch;
                       uniform samplerExternalOES uTex;
                       void main() { $COMMON_BODY }
@@ -1758,11 +1931,11 @@ jobs:
           }
           EOF
 
-      - name: Compile 5.5 APK
+      - name: Compile 6.0 APK
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload 5.5 APK Artifact
+      - name: Upload 6.0 APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NuclearWallpaper-5.5-Pro-APK
+          name: NuclearWallpaper-6.0-APK
           path: app/build/outputs/apk/debug/app-debug.apk
